@@ -1,0 +1,470 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>과학 교사 생성형 AI 인식 유사도 분석기</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f8f9fa; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .controls { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .action-buttons { display: flex; gap: 10px; align-items: flex-end; }
+        .action-buttons button { padding: 10px 20px; color: white; border: none; border-radius: 5px; cursor: pointer; opacity: 0.95; transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease; }
+        .action-buttons button:hover:enabled { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.12); opacity: 1; }
+        .action-buttons button:disabled { cursor: not-allowed; opacity: 0.45; box-shadow: none; transform: none; }
+        .action-buttons button.active { outline: 3px solid rgba(17, 24, 39, 0.35); box-shadow: 0 0 0 2px rgba(255,255,255,0.8) inset; opacity: 1; }
+        .btn-run { background: #3498db; }
+        .btn-recommend { background: #7a4cc2; }
+        .btn-cluster { background: #d97706; }
+        .btn-download { background: #2d8a4f; }
+        table { border-collapse: collapse; margin-top: 20px; font-size: 11px; width: 100%; }
+        th, td { border: 1px solid #ddd; width: 25px; height: 25px; text-align: center; }
+        th { background: #f2f2f2; }
+        .legend { margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .color-box { width: 20px; height: 20px; border: 1px solid #000; }
+        #matrix-container { overflow-x: auto; }
+        #secondary-analysis { margin-top: 28px; border-top: 1px solid #dfe5ec; padding-top: 16px; }
+        #secondary-analysis h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 17px; }
+        #secondary-analysis p { margin: 0 0 12px 0; color: #5f6b79; font-size: 13px; }
+        .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+        .bar-row { display: grid; grid-template-columns: 70px 1fr 52px; align-items: center; gap: 10px; }
+        .bar-label { font-size: 12px; color: #2f3d4b; font-weight: 600; }
+        .bar-track { height: 20px; background: #edf3fa; border-radius: 999px; overflow: hidden; border: 1px solid #d5deea; }
+        .bar-fill { height: 100%; background: linear-gradient(90deg, #6fa3d8 0%, #1b5f9d 100%); }
+        .bar-value { font-size: 12px; font-weight: 700; color: #1f3e5b; text-align: right; }
+        #cluster-analysis { margin-top: 16px; }
+        #cluster-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .cluster-card { border: 1px solid #d8e0ea; border-radius: 8px; padding: 10px; background: #f8fbff; }
+        .cluster-title { font-size: 13px; font-weight: 700; color: #23384d; margin-bottom: 6px; }
+        .cluster-meta { font-size: 12px; color: #4f6277; margin-bottom: 6px; }
+        .cluster-members { font-size: 12px; color: #1f2937; line-height: 1.5; word-break: break-word; }
+        .tooltip { position: relative; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>고교 과학 교사 인식 코사인 유사도 분석</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <strong>1. 분석 영역 선택 (Vector Dimensions)</strong>
+            <label><input type="checkbox" class="dim" value="P" checked> Perception (인식: P)</label>
+            <label><input type="checkbox" class="dim" value="I" checked> Inception (시도: I)</label>
+            <label><input type="checkbox" class="dim" value="D" checked> Decision (결정: D)</label>
+        </div>
+        
+        <div class="control-group">
+            <strong>2. 결정 방식(D) 필터맵 (Group Focus)</strong>
+            <select id="filter-d">
+                <option value="all">전체 교사 보기</option>
+            </select>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵 분석</button>
+            <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 분석 (추천)</button>
+            <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
+            <button id="btn-download" class="btn-download" onclick="downloadSimilarityExcel()">엑셀 자료 다운로드</button>
+        </div>
+    </div>
+
+    <div class="legend">
+        유사도 범례:
+        <div class="color-box" style="background:#f8fcff"></div> 0.0
+        <div class="color-box" style="background:#d8eaff"></div> 0.5 (강조 시작)
+        <div class="color-box" style="background:#5f96cc"></div> 0.75
+        <div class="color-box" style="background:#144b84"></div> 1.0 (일치)
+    </div>
+
+    <div id="matrix-container">
+        <table id="similarity-table"></table>
+    </div>
+
+    <div id="secondary-analysis">
+        <h3>추천 분석: 교사별 평균 유사도</h3>
+        <p>다른 교사들과의 평균 유사도를 비교해, 전체 맥락에서 유사한 인식 패턴을 가진 교사를 빠르게 확인합니다.</p>
+        <div id="avg-bar-chart" class="bar-chart"></div>
+        <div id="cluster-analysis">
+            <h3>추가 분석: 유사도 기반 클러스터</h3>
+            <p>유사도 0.65 이상 연결을 기준으로 교사 그룹을 자동 분류합니다.</p>
+            <div id="cluster-result"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let teacherData = [];
+
+// 코사인 유사도 계산 함수
+function cosineSimilarity(vecA, vecB) {
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let key in vecA) {
+        dotProduct += (vecA[key] || 0) * (vecB[key] || 0);
+        normA += Math.pow(vecA[key] || 0, 2);
+    }
+    for (let key in vecB) {
+        normB += Math.pow(vecB[key] || 0, 2);
+    }
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function parseCsvLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === "," && !inQuotes) {
+            result.push(current);
+            current = "";
+        } else {
+            current += ch;
+        }
+    }
+    result.push(current);
+    return result;
+}
+
+function parseCsv(text) {
+    const lines = text.replace(/\r/g, "").split("\n").filter(line => line.trim() !== "");
+    if (lines.length < 2) return [];
+
+    const headers = parseCsvLine(lines[0]);
+    return lines.slice(1).map(line => {
+        const values = parseCsvLine(line);
+        const row = {};
+        headers.forEach((h, i) => {
+            row[h] = values[i] ?? "";
+        });
+        return row;
+    });
+}
+
+function normalizeTeacherFromCsv(row, name) {
+    const teacher = { ID: row.Teacher_ID, Name: name || "", P: {}, I: {}, D: {} };
+    Object.keys(row).forEach((key) => {
+        if (key === "Teacher_ID") return;
+        const val = Number(row[key]) || 0;
+        if (val <= 0) return;
+
+        if (key.startsWith("P_")) teacher.P[key.slice(2)] = val;
+        if (key.startsWith("I_")) teacher.I[key.slice(2)] = val;
+        if (key.startsWith("D_")) teacher.D[key.slice(2)] = val;
+    });
+    return teacher;
+}
+
+function buildDFilterOptions() {
+    const filter = document.getElementById("filter-d");
+    const dKeys = [...new Set(teacherData.flatMap(t => Object.keys(t.D)))].sort();
+    const options = ['<option value="all">전체 교사 보기</option>']
+        .concat(dKeys.map(key => `<option value="${key}">${key} 그룹</option>`));
+    filter.innerHTML = options.join("");
+}
+
+async function loadMergedData() {
+    const [jsonRes, csvRes] = await Promise.all([
+        fetch("./data_for_app.json"),
+        fetch("./teacher_code_matrix.csv")
+    ]);
+
+    if (!jsonRes.ok) throw new Error(`data_for_app.json 로드 실패: ${jsonRes.status}`);
+    if (!csvRes.ok) throw new Error(`teacher_code_matrix.csv 로드 실패: ${csvRes.status}`);
+
+    const jsonRows = await jsonRes.json();
+    const csvRows = parseCsv(await csvRes.text());
+
+    const nameById = new Map(
+        (Array.isArray(jsonRows) ? jsonRows : [])
+            .filter(r => r && r.Teacher_ID)
+            .map(r => [String(r.Teacher_ID), String(r["교사명"] || "")])
+    );
+
+    teacherData = csvRows
+        .filter(r => r.Teacher_ID && r.Teacher_ID.trim() !== "")
+        .map(r => normalizeTeacherFromCsv(r, nameById.get(String(r.Teacher_ID)) || ""));
+
+    buildDFilterOptions();
+}
+
+function buildCurrentAnalysisResult() {
+    const selectedDims = Array.from(document.querySelectorAll(".dim:checked")).map(cb => cb.value);
+    const filterD = document.getElementById("filter-d").value;
+
+    if (teacherData.length === 0) {
+        return { error: "데이터가 없습니다." };
+    }
+    if (selectedDims.length === 0) {
+        return { error: "최소 1개 분석 영역(P/I/D)을 선택하세요." };
+    }
+
+    let filteredTeachers = teacherData;
+    if (filterD !== "all") {
+        filteredTeachers = teacherData.filter(t => (t.D[filterD] || 0) > 0);
+    }
+    if (filteredTeachers.length === 0) {
+        return { error: "선택한 필터에 해당하는 교사가 없습니다." };
+    }
+
+    const matrix = filteredTeachers.map((t1) => {
+        return filteredTeachers.map((t2) => {
+            const v1 = {};
+            const v2 = {};
+            selectedDims.forEach(dim => {
+                Object.assign(v1, t1[dim]);
+                Object.assign(v2, t2[dim]);
+            });
+            return cosineSimilarity(v1, v2);
+        });
+    });
+
+    return { selectedDims, filterD, filteredTeachers, matrix };
+}
+
+function calculateAndDraw() {
+    const table = document.getElementById("similarity-table");
+    const analysis = buildCurrentAnalysisResult();
+
+    if (analysis.error) {
+        table.innerHTML = `<tr><td>${analysis.error}</td></tr>`;
+        return;
+    }
+
+    const { filteredTeachers, matrix } = analysis;
+    table.innerHTML = "";
+
+    let headerRow = "<tr><th></th>";
+    filteredTeachers.forEach(t => headerRow += `<th>${t.ID}</th>`);
+    table.innerHTML += headerRow + "</tr>";
+
+    filteredTeachers.forEach((t1, rowIndex) => {
+        let row = `<tr><th>${t1.ID}</th>`;
+        filteredTeachers.forEach((t2, colIndex) => {
+            const sim = matrix[rowIndex][colIndex];
+            const style = getSimilarityCellStyle(sim);
+            row += `<td style="${style}" title="${t1.ID}-${t2.ID}: ${sim.toFixed(2)}">${sim.toFixed(1)}</td>`;
+        });
+        table.innerHTML += row + "</tr>";
+    });
+
+    runAverageSimilarityAnalysis(analysis);
+    runClusterAnalysis(analysis);
+}
+
+function setActionButtonsEnabled(enabled) {
+    const ids = ["btn-heatmap", "btn-average", "btn-cluster", "btn-download"];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+    });
+}
+
+function setActiveAnalysisButton(buttonId) {
+    ["btn-heatmap", "btn-average", "btn-cluster"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === buttonId) el.classList.add("active");
+        else el.classList.remove("active");
+    });
+}
+
+function runHeatmapAnalysis() {
+    setActiveAnalysisButton("btn-heatmap");
+    calculateAndDraw();
+}
+
+function runAverageAnalysisFromButton() {
+    setActiveAnalysisButton("btn-average");
+    runAverageSimilarityAnalysis();
+}
+
+function runClusterAnalysisFromButton() {
+    setActiveAnalysisButton("btn-cluster");
+    runClusterAnalysis();
+}
+
+function getSimilarityCellStyle(sim) {
+    const s = Math.max(0, Math.min(1, sim));
+    let background = "";
+    let textColor = "#1f2d3d";
+    let fontWeight = "500";
+    let border = "1px solid #d6e2ef";
+
+    if (s < 0.5) {
+        const t = s / 0.5;
+        const r = Math.round(248 - 32 * t);
+        const g = Math.round(252 - 26 * t);
+        const b = Math.round(255 - 14 * t);
+        background = `rgb(${r}, ${g}, ${b})`;
+    } else {
+        const t = (s - 0.5) / 0.5;
+        const r = Math.round(216 - 196 * t);
+        const g = Math.round(234 - 159 * t);
+        const b = Math.round(255 - 122 * t);
+        background = `rgb(${r}, ${g}, ${b})`;
+        fontWeight = "700";
+        border = "2px solid rgba(20, 75, 132, 0.45)";
+        if (s >= 0.72) textColor = "#ffffff";
+        else textColor = "#0c2e55";
+    }
+
+    return `background-color:${background}; color:${textColor}; font-weight:${fontWeight}; border:${border}`;
+}
+
+function toCsvCell(value) {
+    const safe = String(value ?? "").replace(/"/g, '""');
+    return `"${safe}"`;
+}
+
+function downloadSimilarityExcel() {
+    const analysis = buildCurrentAnalysisResult();
+    if (analysis.error) {
+        alert(analysis.error);
+        return;
+    }
+
+    const { selectedDims, filterD, filteredTeachers, matrix } = analysis;
+    const lines = [];
+    lines.push(["selected_dimensions", selectedDims.join("|")].map(toCsvCell).join(","));
+    lines.push(["d_filter", filterD].map(toCsvCell).join(","));
+    lines.push(["teacher_count", filteredTeachers.length].map(toCsvCell).join(","));
+    lines.push("");
+    lines.push(["teacher_1", "teacher_2", "cosine_similarity"].map(toCsvCell).join(","));
+
+    filteredTeachers.forEach((t1, i) => {
+        filteredTeachers.forEach((t2, j) => {
+            lines.push([t1.ID, t2.ID, matrix[i][j].toFixed(6)].map(toCsvCell).join(","));
+        });
+    });
+
+    const csv = "\uFEFF" + lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = `cosine_similarity_${timestamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function runAverageSimilarityAnalysis(precomputedAnalysis = null) {
+    const chart = document.getElementById("avg-bar-chart");
+    const analysis = precomputedAnalysis || buildCurrentAnalysisResult();
+
+    if (analysis.error) {
+        chart.innerHTML = `<div style="color:#9b2c2c; font-size:13px;">${analysis.error}</div>`;
+        return;
+    }
+
+    const { filteredTeachers, matrix } = analysis;
+    const n = filteredTeachers.length;
+    const rows = filteredTeachers.map((teacher, i) => {
+        const denom = n > 1 ? (n - 1) : 1;
+        const sum = matrix[i].reduce((acc, sim, j) => acc + (i === j ? 0 : sim), 0);
+        const avg = sum / denom;
+        return { id: teacher.ID, avg };
+    }).sort((a, b) => b.avg - a.avg);
+
+    chart.innerHTML = rows.map(row => {
+        const width = Math.max(0, Math.min(100, row.avg * 100));
+        return `
+            <div class="bar-row" title="${row.id}: ${row.avg.toFixed(3)}">
+                <div class="bar-label">${row.id}</div>
+                <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+                <div class="bar-value">${row.avg.toFixed(2)}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+function runClusterAnalysis(precomputedAnalysis = null) {
+    const result = document.getElementById("cluster-result");
+    const analysis = precomputedAnalysis || buildCurrentAnalysisResult();
+    const threshold = 0.65;
+
+    if (analysis.error) {
+        result.innerHTML = `<div style="color:#9b2c2c; font-size:13px;">${analysis.error}</div>`;
+        return;
+    }
+
+    const { filteredTeachers, matrix } = analysis;
+    const n = filteredTeachers.length;
+    const visited = new Array(n).fill(false);
+    const groups = [];
+
+    for (let i = 0; i < n; i++) {
+        if (visited[i]) continue;
+        const queue = [i];
+        visited[i] = true;
+        const members = [];
+
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            members.push(curr);
+
+            for (let j = 0; j < n; j++) {
+                if (!visited[j] && curr !== j && matrix[curr][j] >= threshold) {
+                    visited[j] = true;
+                    queue.push(j);
+                }
+            }
+        }
+        groups.push(members);
+    }
+
+    const groupRows = groups.map((indices, idx) => {
+        let pairCount = 0;
+        let pairSum = 0;
+        for (let a = 0; a < indices.length; a++) {
+            for (let b = a + 1; b < indices.length; b++) {
+                pairSum += matrix[indices[a]][indices[b]];
+                pairCount += 1;
+            }
+        }
+        const avgIntra = pairCount > 0 ? (pairSum / pairCount) : 1;
+        const members = indices.map(i => filteredTeachers[i].ID);
+        return { id: idx + 1, size: indices.length, avgIntra, members };
+    }).sort((a, b) => (b.size - a.size) || (b.avgIntra - a.avgIntra));
+
+    result.innerHTML = groupRows.map(g => `
+        <div class="cluster-card">
+            <div class="cluster-title">클러스터 ${g.id}</div>
+            <div class="cluster-meta">인원: ${g.size}명 / 군집 내 평균 유사도: ${g.avgIntra.toFixed(2)}</div>
+            <div class="cluster-members">${g.members.join(", ")}</div>
+        </div>
+    `).join("");
+}
+
+// 초기 실행
+window.onload = async () => {
+    const table = document.getElementById('similarity-table');
+    table.innerHTML = "<tr><td>데이터를 불러오는 중입니다...</td></tr>";
+    setActionButtonsEnabled(false);
+    try {
+        await loadMergedData();
+        setActionButtonsEnabled(true);
+        runHeatmapAnalysis();
+    } catch (err) {
+        table.innerHTML = `<tr><td>데이터 로드 실패: ${err.message}</td></tr>`;
+    }
+};
+</script>
+</body>
+</html>
+
