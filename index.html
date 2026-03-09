@@ -17,6 +17,7 @@
         .btn-run { background: #3498db; }
         .btn-recommend { background: #7a4cc2; }
         .btn-cluster { background: #d97706; }
+        .btn-distance { background: #0f766e; }
         .btn-download { background: #2d8a4f; }
         table { border-collapse: collapse; margin-top: 20px; font-size: 11px; width: 100%; }
         th, td { border: 1px solid #ddd; width: 25px; height: 25px; text-align: center; }
@@ -40,6 +41,21 @@
         .cluster-meta { font-size: 12px; color: #4f6277; margin-bottom: 6px; }
         .cluster-members { font-size: 12px; color: #1f2937; line-height: 1.5; word-break: break-word; }
         .tooltip { position: relative; cursor: pointer; }
+        #distance-map-analysis { margin-top: 16px; border-top: 1px solid #dfe5ec; padding-top: 14px; }
+        #distance-map-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        #distance-map-controls label { font-size: 12px; color: #2f3d4b; font-weight: 600; }
+        #distance-threshold-value { font-size: 12px; color: #0b4f69; font-weight: 700; min-width: 36px; }
+        #distance-map-summary { font-size: 12px; color: #4f6277; margin-bottom: 8px; }
+        #distance-map {
+            width: 100%;
+            height: 560px;
+            border: 1px solid #d8e0ea;
+            border-radius: 8px;
+            background: radial-gradient(circle at 20% 20%, #fafdff 0%, #f1f6fb 45%, #eaf1f9 100%);
+        }
+        .distance-edge { stroke: #6b7280; stroke-opacity: 0.28; }
+        .distance-label { font-size: 11px; fill: #334155; font-weight: 700; text-anchor: middle; }
+        .distance-node { stroke: #ffffff; stroke-width: 1.4; }
     </style>
 </head>
 <body>
@@ -66,6 +82,7 @@
             <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵 분석</button>
             <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 분석 (추천)</button>
             <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
+            <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
             <button id="btn-download" class="btn-download" onclick="downloadSimilarityExcel()">엑셀 자료 다운로드</button>
         </div>
     </div>
@@ -90,6 +107,17 @@
             <h3>추가 분석: 유사도 기반 클러스터</h3>
             <p>유사도 0.65 이상 연결을 기준으로 교사 그룹을 자동 분류합니다.</p>
             <div id="cluster-result"></div>
+        </div>
+        <div id="distance-map-analysis">
+            <h3>시각화: 교사 간 거리 맵 (2D)</h3>
+            <p>코사인 유사도를 거리(1-유사도)로 변환해 2차원에 배치합니다. 가까울수록 인식 패턴이 유사합니다.</p>
+            <div id="distance-map-controls">
+                <label for="distance-threshold">연결선 기준 유사도</label>
+                <input id="distance-threshold" type="range" min="0.50" max="0.95" step="0.01" value="0.72" oninput="onDistanceThresholdInput()">
+                <span id="distance-threshold-value">0.72</span>
+            </div>
+            <div id="distance-map-summary"></div>
+            <svg id="distance-map" viewBox="0 0 1000 560" role="img" aria-label="교사 간 거리 맵"></svg>
         </div>
     </div>
 </div>
@@ -262,10 +290,11 @@ function calculateAndDraw() {
 
     runAverageSimilarityAnalysis(analysis);
     runClusterAnalysis(analysis);
+    runDistanceMapAnalysis(analysis);
 }
 
 function setActionButtonsEnabled(enabled) {
-    const ids = ["btn-heatmap", "btn-average", "btn-cluster", "btn-download"];
+    const ids = ["btn-heatmap", "btn-average", "btn-cluster", "btn-distance", "btn-download"];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = !enabled;
@@ -273,7 +302,7 @@ function setActionButtonsEnabled(enabled) {
 }
 
 function setActiveAnalysisButton(buttonId) {
-    ["btn-heatmap", "btn-average", "btn-cluster"].forEach(id => {
+    ["btn-heatmap", "btn-average", "btn-cluster", "btn-distance"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         if (id === buttonId) el.classList.add("active");
@@ -281,19 +310,33 @@ function setActiveAnalysisButton(buttonId) {
     });
 }
 
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function runHeatmapAnalysis() {
     setActiveAnalysisButton("btn-heatmap");
     calculateAndDraw();
+    scrollToSection("matrix-container");
 }
 
 function runAverageAnalysisFromButton() {
     setActiveAnalysisButton("btn-average");
     runAverageSimilarityAnalysis();
+    scrollToSection("avg-bar-chart");
 }
 
 function runClusterAnalysisFromButton() {
     setActiveAnalysisButton("btn-cluster");
     runClusterAnalysis();
+    scrollToSection("cluster-analysis");
+}
+
+function runDistanceMapAnalysisFromButton() {
+    setActiveAnalysisButton("btn-distance");
+    runDistanceMapAnalysis();
+    scrollToSection("distance-map-analysis");
 }
 
 function getSimilarityCellStyle(sim) {
@@ -451,6 +494,296 @@ function runClusterAnalysis(precomputedAnalysis = null) {
     `).join("");
 }
 
+function dominantDGroup(teacher) {
+    const entries = Object.entries(teacher.D || {});
+    if (entries.length === 0) return "기타";
+    let bestKey = "기타";
+    let bestVal = -1;
+    entries.forEach(([k, v]) => {
+        const n = Number(v) || 0;
+        if (n > bestVal) {
+            bestVal = n;
+            bestKey = k;
+        }
+    });
+    return bestKey;
+}
+
+function colorForGroup(groupKey) {
+    const palette = ["#3b82f6", "#16a34a", "#9333ea", "#ea580c", "#0f766e", "#a16207", "#be185d", "#334155"];
+    let hash = 0;
+    for (let i = 0; i < groupKey.length; i++) {
+        hash = ((hash << 5) - hash) + groupKey.charCodeAt(i);
+    }
+    return palette[Math.abs(hash) % palette.length];
+}
+
+function topKEigenPairsSymmetric(matrix, k = 2, maxIter = 200, tol = 1e-7) {
+    const n = matrix.length;
+    const A = matrix.map(row => row.slice());
+    const values = [];
+    const vectors = [];
+
+    function dot(a, b) {
+        let s = 0;
+        for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+        return s;
+    }
+
+    function normalize(v) {
+        const norm = Math.sqrt(dot(v, v)) || 1;
+        return v.map(x => x / norm);
+    }
+
+    function matVec(M, v) {
+        const out = new Array(v.length).fill(0);
+        for (let i = 0; i < M.length; i++) {
+            let sum = 0;
+            for (let j = 0; j < v.length; j++) {
+                sum += M[i][j] * v[j];
+            }
+            out[i] = sum;
+        }
+        return out;
+    }
+
+    for (let comp = 0; comp < Math.min(k, n); comp++) {
+        let v = new Array(n).fill(0).map((_, i) => ((i + 1) * (comp + 3)) % 11 + 1);
+        v = normalize(v);
+
+        for (let iter = 0; iter < maxIter; iter++) {
+            const Av = matVec(A, v);
+            const next = normalize(Av);
+            const diff = Math.sqrt(next.reduce((acc, x, i) => acc + Math.pow(x - v[i], 2), 0));
+            v = next;
+            if (diff < tol) break;
+        }
+
+        const Av = matVec(A, v);
+        const lambda = dot(v, Av);
+        if (lambda <= 1e-9) continue;
+
+        values.push(lambda);
+        vectors.push(v.slice());
+
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                A[i][j] -= lambda * v[i] * v[j];
+            }
+        }
+    }
+
+    return { values, vectors };
+}
+
+function classicalMds(distanceMatrix) {
+    const n = distanceMatrix.length;
+    if (n <= 1) return [{ x: 0, y: 0 }];
+
+    const d2 = distanceMatrix.map(row => row.map(v => v * v));
+    const rowMean = d2.map(row => row.reduce((a, b) => a + b, 0) / n);
+    const colMean = new Array(n).fill(0);
+    for (let j = 0; j < n; j++) {
+        let s = 0;
+        for (let i = 0; i < n; i++) s += d2[i][j];
+        colMean[j] = s / n;
+    }
+    const totalMean = rowMean.reduce((a, b) => a + b, 0) / n;
+
+    const B = new Array(n).fill(0).map(() => new Array(n).fill(0));
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            B[i][j] = -0.5 * (d2[i][j] - rowMean[i] - colMean[j] + totalMean);
+        }
+    }
+
+    const { values, vectors } = topKEigenPairsSymmetric(B, 2);
+    if (values.length === 0) {
+        return new Array(n).fill(0).map((_, i) => ({ x: i / Math.max(1, n - 1), y: 0 }));
+    }
+
+    const xScale = Math.sqrt(Math.max(values[0] || 0, 0));
+    const yScale = Math.sqrt(Math.max(values[1] || 0, 0));
+    const v0 = vectors[0] || new Array(n).fill(0);
+    const v1 = vectors[1] || new Array(n).fill(0);
+
+    return new Array(n).fill(0).map((_, i) => ({
+        x: v0[i] * xScale,
+        y: v1[i] * yScale
+    }));
+}
+
+function scaleCoords(coords, width, height, padding) {
+    const xs = coords.map(p => p.x);
+    const ys = coords.map(p => p.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const spanX = Math.max(1e-6, maxX - minX);
+    const spanY = Math.max(1e-6, maxY - minY);
+
+    return coords.map(p => ({
+        x: padding + ((p.x - minX) / spanX) * (width - 2 * padding),
+        y: padding + ((p.y - minY) / spanY) * (height - 2 * padding)
+    }));
+}
+
+// 거리 맵 상태 (드래그용 유지)
+let _dmCoords = null;
+let _dmAnalysis = null;
+let _dmDragging = null;
+
+function getSvgPoint(svg, event) {
+    const rect = svg.getBoundingClientRect();
+    return {
+        x: (event.clientX - rect.left) * (1000 / rect.width),
+        y: (event.clientY - rect.top)  * (560  / rect.height)
+    };
+}
+
+function onDistanceThresholdInput() {
+    const slider = document.getElementById("distance-threshold");
+    document.getElementById("distance-threshold-value").textContent = Number(slider.value).toFixed(2);
+    // 임계값 변경 시엔 좌표 유지, 엣지만 다시 그림
+    if (_dmCoords && _dmAnalysis) renderDistanceMap();
+    else runDistanceMapAnalysis();
+}
+
+function runDistanceMapAnalysis(precomputedAnalysis = null) {
+    const analysis = precomputedAnalysis || buildCurrentAnalysisResult();
+    const svg = document.getElementById("distance-map");
+    const summary = document.getElementById("distance-map-summary");
+
+    if (analysis.error) {
+        svg.innerHTML = "";
+        summary.textContent = analysis.error;
+        _dmCoords = null;
+        _dmAnalysis = null;
+        return;
+    }
+
+    const { matrix } = analysis;
+    const distanceMatrix = matrix.map((row, i) =>
+        row.map((sim, j) => (i === j ? 0 : Math.max(0, 1 - sim)))
+    );
+    _dmCoords = scaleCoords(classicalMds(distanceMatrix), 1000, 560, 48);
+    _dmAnalysis = analysis;
+    renderDistanceMap();
+}
+
+function renderDistanceMap() {
+    const svg = document.getElementById("distance-map");
+    const summary = document.getElementById("distance-map-summary");
+    if (!_dmAnalysis || !_dmCoords) return;
+
+    const { filteredTeachers, matrix } = _dmAnalysis;
+    const n = filteredTeachers.length;
+    const threshold = Number(document.getElementById("distance-threshold").value || 0.72);
+
+    // 엣지 목록
+    const edges = [];
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            if (matrix[i][j] >= threshold) edges.push({ i, j, sim: matrix[i][j] });
+        }
+    }
+
+    // SVG 완전 재구성 (DOM API 사용 → 드래그 핸들러 연결)
+    svg.innerHTML = "";
+
+    const NS = "http://www.w3.org/2000/svg";
+
+    // ── 엣지 그룹 ──
+    const edgeG = document.createElementNS(NS, "g");
+    edgeG.id = "dm-edges";
+    edges.forEach(e => {
+        const a = _dmCoords[e.i], b = _dmCoords[e.j];
+        const sw = (0.6 + ((e.sim - threshold) / Math.max(0.01, 1 - threshold)) * 3.2).toFixed(2);
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("class", "distance-edge");
+        line.setAttribute("x1", a.x.toFixed(1)); line.setAttribute("y1", a.y.toFixed(1));
+        line.setAttribute("x2", b.x.toFixed(1)); line.setAttribute("y2", b.y.toFixed(1));
+        line.style.strokeWidth = sw;
+        line.dataset.i = e.i;
+        line.dataset.j = e.j;
+        edgeG.appendChild(line);
+    });
+    svg.appendChild(edgeG);
+
+    // ── 노드 그룹 ──
+    const nodeG = document.createElementNS(NS, "g");
+    filteredTeachers.forEach((teacher, i) => {
+        const p = _dmCoords[i];
+        const fill = colorForGroup(dominantDGroup(teacher));
+
+        const g = document.createElementNS(NS, "g");
+        g.style.cursor = "grab";
+
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("class", "distance-node");
+        circle.setAttribute("cx", p.x.toFixed(1));
+        circle.setAttribute("cy", p.y.toFixed(1));
+        circle.setAttribute("r", "8");
+        circle.setAttribute("fill", fill);
+
+        const titleEl = document.createElementNS(NS, "title");
+        titleEl.textContent = `${teacher.ID} (${teacher.Name || "이름 없음"})\n주요 D 그룹: ${dominantDGroup(teacher)}`;
+        circle.appendChild(titleEl);
+
+        const text = document.createElementNS(NS, "text");
+        text.setAttribute("class", "distance-label");
+        text.setAttribute("x", p.x.toFixed(1));
+        text.setAttribute("y", (p.y + 20).toFixed(1));
+        text.textContent = teacher.ID;
+
+        g.appendChild(circle);
+        g.appendChild(text);
+
+        g.addEventListener("mousedown", ev => {
+            ev.preventDefault();
+            _dmDragging = { index: i, circle, text };
+            g.style.cursor = "grabbing";
+        });
+
+        nodeG.appendChild(g);
+    });
+    svg.appendChild(nodeG);
+
+    // ── SVG 드래그 이벤트 ──
+    svg.onmousemove = ev => {
+        if (!_dmDragging) return;
+        const pt = getSvgPoint(svg, ev);
+        const idx = _dmDragging.index;
+        _dmCoords[idx] = pt;
+
+        _dmDragging.circle.setAttribute("cx", pt.x.toFixed(1));
+        _dmDragging.circle.setAttribute("cy", pt.y.toFixed(1));
+        _dmDragging.text.setAttribute("x", pt.x.toFixed(1));
+        _dmDragging.text.setAttribute("y", (pt.y + 20).toFixed(1));
+
+        edgeG.querySelectorAll("line").forEach(line => {
+            if (Number(line.dataset.i) === idx) {
+                line.setAttribute("x1", pt.x.toFixed(1));
+                line.setAttribute("y1", pt.y.toFixed(1));
+            }
+            if (Number(line.dataset.j) === idx) {
+                line.setAttribute("x2", pt.x.toFixed(1));
+                line.setAttribute("y2", pt.y.toFixed(1));
+            }
+        });
+    };
+
+    svg.onmouseup = svg.onmouseleave = () => {
+        if (_dmDragging) {
+            _dmDragging.circle.closest("g").style.cursor = "grab";
+            _dmDragging = null;
+        }
+    };
+
+    summary.textContent = `현재 ${n}명 표시, 유사도 ${threshold.toFixed(2)} 이상 연결선 ${edges.length}개`;
+}
+
 // 초기 실행
 window.onload = async () => {
     const table = document.getElementById('similarity-table');
@@ -460,6 +793,7 @@ window.onload = async () => {
         await loadMergedData();
         setActionButtonsEnabled(true);
         runHeatmapAnalysis();
+        runDistanceMapAnalysis();
     } catch (err) {
         table.innerHTML = `<tr><td>데이터 로드 실패: ${err.message}</td></tr>`;
     }
