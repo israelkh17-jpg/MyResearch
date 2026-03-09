@@ -19,6 +19,8 @@
         .btn-cluster { background: #d97706; }
         .btn-distance { background: #0f766e; }
         .btn-download { background: #2d8a4f; }
+        .btn-code { background: #be185d; }
+        .btn-network { background: #7c3aed; }
         table { border-collapse: collapse; margin-top: 20px; font-size: 11px; width: 100%; }
         th, td { border: 1px solid #ddd; width: 25px; height: 25px; text-align: center; }
         th { background: #f2f2f2; }
@@ -67,7 +69,7 @@
         <div class="control-group">
             <strong>1. 분석 영역 선택 (Vector Dimensions)</strong>
             <label><input type="checkbox" class="dim" value="P" checked> Perception (인식: P)</label>
-            <label><input type="checkbox" class="dim" value="I" checked> Inception (시도: I)</label>
+            <label><input type="checkbox" class="dim" value="I" checked> Interpretation (해석: I)</label>
             <label><input type="checkbox" class="dim" value="D" checked> Decision (결정: D)</label>
         </div>
         
@@ -80,9 +82,11 @@
         
         <div class="action-buttons">
             <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵 분석</button>
+            <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
+            <button id="btn-network" class="btn-network" onclick="openTeacherNetworkWindow()">교사 거리 맵(3D)</button>
             <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 분석 (추천)</button>
             <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
-            <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
+            <button id="btn-code" class="btn-code" onclick="openCodeSimilarityWindow()">코드간 코사인 유사도 분석</button>
             <button id="btn-download" class="btn-download" onclick="downloadSimilarityExcel()">엑셀 자료 다운로드</button>
         </div>
     </div>
@@ -100,6 +104,37 @@
     </div>
 
     <div id="secondary-analysis">
+        <div id="distance-map-analysis">
+            <h3>시각화: 교사 간 거리 맵 (2D)</h3>
+            <p>코사인 유사도를 거리(1-유사도)로 변환해 2차원에 배치합니다. 가까울수록 인식 패턴이 유사합니다.</p>
+
+            <div style="background:#f0f6ff; border:1px solid #c5d9f0; border-radius:8px; padding:14px 18px; margin-bottom:14px; font-size:13px; color:#1e3a5f; line-height:1.8;">
+                <strong style="display:block; margin-bottom:6px; font-size:14px; color:#0d2d52;">읽는 방법 안내</strong>
+                <div style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+                    <div style="display:flex; gap:12px; align-items:flex-start;">
+                        <span style="white-space:nowrap; min-width:100px; font-weight:700;">● 노드(점)</span>
+                        <span style="color:#2f4f70; text-align:left;">교사 1명을 나타냅니다. 색상은 해당 교사의 주요 결정 방식(D 그룹)을 구분합니다. 노드를 드래그해 위치를 자유롭게 옮길 수 있습니다.</span>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:flex-start;">
+                        <span style="white-space:nowrap; min-width:100px; font-weight:700;">↔ 노드 간 거리</span>
+                        <span style="color:#2f4f70; text-align:left;">코사인 거리 = 1 − 유사도로 계산됩니다. <strong>두 교사가 가까울수록</strong> AI 인식 패턴이 서로 비슷하고, <strong>멀수록</strong> 인식 차이가 큽니다. 초기 배치는 MDS(다차원 척도법)로 자동 계산됩니다.</span>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:flex-start;">
+                        <span style="white-space:nowrap; min-width:100px; font-weight:700;">─ 연결선</span>
+                        <span style="color:#2f4f70; text-align:left;">아래 슬라이더에서 설정한 <strong>유사도 기준값 이상</strong>인 교사 쌍에만 선이 그려집니다. 선이 <strong>굵을수록</strong> 유사도가 높습니다. 슬라이더를 올리면 높은 유사도 쌍만 남고, 내리면 더 많은 연결이 표시됩니다.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="distance-map-controls">
+                <label for="distance-threshold">연결선 기준 유사도</label>
+                <input id="distance-threshold" type="range" min="0.50" max="0.95" step="0.01" value="0.72" oninput="onDistanceThresholdInput()">
+                <span id="distance-threshold-value">0.72</span>
+                <button onclick="resetDistanceMapLayout()" style="margin-left:12px; padding:4px 12px; font-size:12px; background:#64748b; color:white; border:none; border-radius:5px; cursor:pointer;">배치 초기화</button>
+            </div>
+            <div id="distance-map-summary"></div>
+            <svg id="distance-map" viewBox="0 0 1000 560" role="img" aria-label="교사 간 거리 맵"></svg>
+        </div>
         <h3>추천 분석: 교사별 평균 유사도</h3>
         <p>다른 교사들과의 평균 유사도를 비교해, 전체 맥락에서 유사한 인식 패턴을 가진 교사를 빠르게 확인합니다.</p>
         <div id="avg-bar-chart" class="bar-chart"></div>
@@ -107,17 +142,6 @@
             <h3>추가 분석: 유사도 기반 클러스터</h3>
             <p>유사도 0.65 이상 연결을 기준으로 교사 그룹을 자동 분류합니다.</p>
             <div id="cluster-result"></div>
-        </div>
-        <div id="distance-map-analysis">
-            <h3>시각화: 교사 간 거리 맵 (2D)</h3>
-            <p>코사인 유사도를 거리(1-유사도)로 변환해 2차원에 배치합니다. 가까울수록 인식 패턴이 유사합니다.</p>
-            <div id="distance-map-controls">
-                <label for="distance-threshold">연결선 기준 유사도</label>
-                <input id="distance-threshold" type="range" min="0.50" max="0.95" step="0.01" value="0.72" oninput="onDistanceThresholdInput()">
-                <span id="distance-threshold-value">0.72</span>
-            </div>
-            <div id="distance-map-summary"></div>
-            <svg id="distance-map" viewBox="0 0 1000 560" role="img" aria-label="교사 간 거리 맵"></svg>
         </div>
     </div>
 </div>
@@ -642,6 +666,16 @@ function getSvgPoint(svg, event) {
     };
 }
 
+function resetDistanceMapLayout() {
+    if (!_dmAnalysis) return;
+    const { matrix } = _dmAnalysis;
+    const distanceMatrix = matrix.map((row, i) =>
+        row.map((sim, j) => (i === j ? 0 : Math.max(0, 1 - sim)))
+    );
+    _dmCoords = scaleCoords(classicalMds(distanceMatrix), 1000, 560, 48);
+    renderDistanceMap();
+}
+
 function onDistanceThresholdInput() {
     const slider = document.getElementById("distance-threshold");
     document.getElementById("distance-threshold-value").textContent = Number(slider.value).toFixed(2);
@@ -783,6 +817,25 @@ function renderDistanceMap() {
 
     summary.textContent = `현재 ${n}명 표시, 유사도 ${threshold.toFixed(2)} 이상 연결선 ${edges.length}개`;
 }
+
+// ── 교사 거리 맵(3D) 새 창 ──
+function openTeacherNetworkWindow() {
+    if (!teacherData || teacherData.length === 0) {
+        alert("데이터가 로드되지 않았습니다. 먼저 데이터를 불러오세요.");
+        return;
+    }
+    window.open('./teacher_network.html', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+}
+
+// ── 코드간 유사도 분석 새 창 ──
+function openCodeSimilarityWindow() {
+    if (!teacherData || teacherData.length === 0) {
+        alert("데이터가 로드되지 않았습니다. 먼저 데이터를 불러오세요.");
+        return;
+    }
+    window.open('./code_analysis.html', '_blank', 'width=1280,height=900,scrollbars=yes,resizable=yes');
+}
+
 
 // 초기 실행
 window.onload = async () => {

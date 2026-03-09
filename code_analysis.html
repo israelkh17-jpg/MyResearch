@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>코드간 코사인 유사도 분석</title>
+<style>
+body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background: #f8f9fa; }
+.container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+h1 { color: #2c3e50; border-bottom: 2px solid #be185d; padding-bottom: 10px; }
+h3 { color: #2c3e50; margin: 0 0 6px 0; }
+.controls { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
+.control-group { display: flex; flex-direction: column; gap: 5px; }
+.action-buttons { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.action-buttons button { padding: 10px 18px; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s; opacity: 0.95; }
+.action-buttons button:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.12); opacity: 1; }
+.action-buttons button.active { outline: 3px solid rgba(17,24,39,0.35); box-shadow: 0 0 0 2px rgba(255,255,255,0.8) inset; opacity: 1; }
+.btn-heatmap { background: #3498db; }
+.btn-distmap { background: #0f766e; }
+.btn-dl { background: #2d8a4f; }
+#status-msg { font-size: 13px; color: #6b7280; padding: 6px 0; }
+table { border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+th, td { border: 1px solid #ddd; min-width: 28px; height: 25px; text-align: center; padding: 0 2px; }
+th { background: #f2f2f2; white-space: nowrap; font-size: 10px; }
+#matrix-container { overflow-x: auto; margin-top: 16px; }
+#dm-section { margin-top: 24px; border-top: 1px solid #dfe5ec; padding-top: 16px; }
+#dm-controls { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+#dm-controls label { font-size: 12px; font-weight: 600; color: #2f3d4b; }
+#dm-thr-val { font-size: 12px; font-weight: 700; color: #0b4f69; min-width: 36px; }
+#dm-summary { font-size: 12px; color: #4f6277; margin-bottom: 8px; }
+#code-dm { width: 100%; height: 560px; border: 1px solid #d8e0ea; border-radius: 8px; background: radial-gradient(circle at 20% 20%, #fafdff, #f1f6fb 45%, #eaf1f9); }
+.d-edge { stroke: #6b7280; stroke-opacity: 0.3; }
+.d-label { font-size: 11px; fill: #334155; font-weight: 700; text-anchor: middle; }
+.d-node { stroke: #ffffff; stroke-width: 1.4; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>코드간 코사인 유사도 분석</h1>
+  <div id="status-msg">데이터 로딩 중...</div>
+  <div class="controls">
+    <div class="control-group">
+      <strong>분석 차원 선택</strong>
+      <label><input type="checkbox" class="dim-chk" value="P" checked onchange="onDimChange()"> Perception (인식: P)</label>
+      <label><input type="checkbox" class="dim-chk" value="I" checked onchange="onDimChange()"> Interpretation (해석: I)</label>
+      <label><input type="checkbox" class="dim-chk" value="D" checked onchange="onDimChange()"> Decision (결정: D)</label>
+    </div>
+    <div class="action-buttons">
+      <button id="btn-heatmap" class="btn-heatmap active" onclick="runHeatmap()">행렬 히트맵 분석</button>
+      <button id="btn-distmap" class="btn-distmap" onclick="runDistMapBtn()">코드 거리 맵</button>
+      <button class="btn-dl" onclick="downloadExcel()">엑셀 자료 다운로드</button>
+    </div>
+  </div>
+  <div id="matrix-container"><table id="code-tbl"></table></div>
+  <div id="dm-section">
+    <h3>코드 간 거리 맵 (2D)</h3>
+    <p style="font-size:13px;color:#5f6b79;margin:0 0 6px 0;">코사인 유사도를 거리(1-유사도)로 변환해 2차원에 배치합니다. 노드 색상은 차원(P/I/D)을 나타냅니다. 노드를 드래그해 이동할 수 있습니다.</p>
+    <div id="dm-controls">
+      <label for="dm-thr">연결선 기준 유사도</label>
+      <input id="dm-thr" type="range" min="0.10" max="0.99" step="0.01" value="0.50" oninput="onThrInput()">
+      <span id="dm-thr-val">0.50</span>
+      <button onclick="resetLayout()" style="margin-left:12px;padding:4px 12px;font-size:12px;background:#64748b;color:white;border:none;border-radius:5px;cursor:pointer;">배치 초기화</button>
+    </div>
+    <div id="dm-summary"></div>
+    <svg id="code-dm" viewBox="0 0 1000 560"></svg>
+  </div>
+</div>
+
+<script>
+// ── 전체 데이터 (code_similarity.json 에서 로드) ──
+let _allData = null;  // { codes, dims, matrix, n_teachers, n_codes }
+let _res = null;      // 현재 선택 차원 필터링된 { codes, matrix }
+let _coords = null;
+let _dragging = null;
+
+const DIM_COLOR = { P: '#3b82f6', I: '#16a34a', D: '#ea580c' };
+function codeColor(code) { return DIM_COLOR[code.split('_')[0]] || '#64748b'; }
+
+// 차원 체크박스 변경 시 현재 활성 분석 자동 재실행
+function onDimChange() {
+  if (!_allData) return;
+  const activeBtn = document.querySelector('.action-buttons button.active');
+  if (activeBtn && activeBtn.id === 'btn-distmap') {
+    runDistMapBtn();
+  } else {
+    runHeatmap();
+  }
+}
+
+function getDims() {
+  return Array.from(document.querySelectorAll('.dim-chk:checked')).map(c => c.value);
+}
+
+// 선택 차원으로 필터링된 행렬 반환
+function buildMatrix() {
+  if (!_allData) return { error: '데이터를 불러오는 중입니다. 잠시 후 다시 시도하세요.' };
+  const dims = getDims();
+  if (dims.length === 0) return { error: '최소 1개 차원을 선택하세요.' };
+  const indices = _allData.codes
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => dims.includes(c.split('_')[0]))
+    .map(({ i }) => i);
+  if (indices.length === 0) return { error: '선택한 차원에 코드가 없습니다.' };
+  const codes = indices.map(i => _allData.codes[i]);
+  const matrix = indices.map(i => indices.map(j => _allData.matrix[i][j]));
+  return { codes, matrix };
+}
+
+function cellStyle(sim) {
+  const s = Math.max(0, Math.min(1, sim));
+  let bg, tc = '#1f2d3d', fw = '500', bd = '1px solid #d6e2ef';
+  if (s < 0.5) {
+    const t = s / 0.5;
+    bg = 'rgb(' + Math.round(248 - 32*t) + ',' + Math.round(252 - 26*t) + ',' + Math.round(255 - 14*t) + ')';
+  } else {
+    const t = (s - 0.5) / 0.5;
+    bg = 'rgb(' + Math.round(216 - 196*t) + ',' + Math.round(234 - 159*t) + ',' + Math.round(255 - 122*t) + ')';
+    fw = '700'; bd = '2px solid rgba(20,75,132,0.45)';
+    tc = s >= 0.65 ? '#ffffff' : '#0c2e55';
+  }
+  return 'background:' + bg + ';color:' + tc + ';font-weight:' + fw + ';border:' + bd;
+}
+
+function setActiveBtn(id) {
+  ['btn-heatmap', 'btn-distmap'].forEach(b => {
+    const el = document.getElementById(b);
+    if (el) el.classList.toggle('active', b === id);
+  });
+}
+
+function runHeatmap() {
+  setActiveBtn('btn-heatmap');
+  const r = buildMatrix();
+  const tbl = document.getElementById('code-tbl');
+  if (r.error) { tbl.innerHTML = '<tr><td style="color:red;padding:10px">' + r.error + '</td></tr>'; return; }
+  _res = r;
+  const { codes, matrix } = r;
+
+  // 행 헤더 (코드명 축약: 차원 접두사 제거해 표시)
+  const shortName = c => c.replace(/^[PID]_/, '');
+
+  let h = '<tr><th></th>';
+  codes.forEach(c => { h += '<th title="' + c + '">' + shortName(c) + '</th>'; });
+  h += '</tr>';
+  codes.forEach((c1, i) => {
+    h += '<tr><th title="' + c1 + '">' + shortName(c1) + '</th>';
+    codes.forEach((c2, j) => {
+      const sim = matrix[i][j];
+      h += '<td style="' + cellStyle(sim) + '" title="' + c1 + ' ↔ ' + c2 + ': ' + sim.toFixed(3) + '">' + sim.toFixed(2) + '</td>';
+    });
+    h += '</tr>';
+  });
+  tbl.innerHTML = h;
+  initCoords();
+  renderDm();
+}
+
+function initCoords() {
+  if (!_res) return;
+  const dm = _res.matrix.map((row, i) => row.map((s, j) => i === j ? 0 : Math.max(0, 1 - s)));
+  _coords = scaleCoords(classicalMds(dm), 1000, 560, 70);
+}
+
+function runDistMapBtn() {
+  setActiveBtn('btn-distmap');
+  const r = buildMatrix();
+  if (r.error) { document.getElementById('dm-summary').textContent = r.error; return; }
+  _res = r; initCoords(); renderDm();
+  document.getElementById('dm-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetLayout() { initCoords(); renderDm(); }
+
+function onThrInput() {
+  document.getElementById('dm-thr-val').textContent = Number(document.getElementById('dm-thr').value).toFixed(2);
+  if (_coords && _res) renderDm();
+}
+
+function getSvgPt(svg, ev) {
+  const r = svg.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) * (1000 / r.width), y: (ev.clientY - r.top) * (560 / r.height) };
+}
+
+function renderDm() {
+  const svg = document.getElementById('code-dm');
+  const sumEl = document.getElementById('dm-summary');
+  if (!_res || !_coords) return;
+  const { codes, matrix } = _res;
+  const n = codes.length;
+  const thr = Number(document.getElementById('dm-thr').value || 0.50);
+  const NS = 'http://www.w3.org/2000/svg';
+  const shortName = c => c.replace(/^[PID]_/, '');
+
+  const edges = [];
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (matrix[i][j] >= thr) edges.push({ i, j, sim: matrix[i][j] });
+
+  svg.innerHTML = '';
+
+  // 엣지
+  const edgeG = document.createElementNS(NS, 'g');
+  edgeG.id = 'cdm-edges';
+  edges.forEach(e => {
+    const a = _coords[e.i], b = _coords[e.j];
+    const sw = (0.6 + ((e.sim - thr) / Math.max(0.01, 1 - thr)) * 3.5).toFixed(2);
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('class', 'd-edge');
+    line.setAttribute('x1', a.x.toFixed(1)); line.setAttribute('y1', a.y.toFixed(1));
+    line.setAttribute('x2', b.x.toFixed(1)); line.setAttribute('y2', b.y.toFixed(1));
+    line.style.strokeWidth = sw;
+    line.dataset.i = e.i; line.dataset.j = e.j;
+    edgeG.appendChild(line);
+  });
+  svg.appendChild(edgeG);
+
+  // 노드
+  const nodeG = document.createElementNS(NS, 'g');
+  codes.forEach((code, i) => {
+    const p = _coords[i];
+    const g = document.createElementNS(NS, 'g');
+    g.style.cursor = 'grab';
+
+    const circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('class', 'd-node');
+    circle.setAttribute('cx', p.x.toFixed(1)); circle.setAttribute('cy', p.y.toFixed(1));
+    circle.setAttribute('r', '9'); circle.setAttribute('fill', codeColor(code));
+    const titleEl = document.createElementNS(NS, 'title');
+    titleEl.textContent = code; circle.appendChild(titleEl);
+
+    const text = document.createElementNS(NS, 'text');
+    text.setAttribute('class', 'd-label');
+    text.setAttribute('x', p.x.toFixed(1)); text.setAttribute('y', (p.y + 22).toFixed(1));
+    text.textContent = shortName(code);
+
+    g.appendChild(circle); g.appendChild(text);
+    g.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      _dragging = { index: i, circle, text };
+      g.style.cursor = 'grabbing';
+    });
+    nodeG.appendChild(g);
+  });
+  svg.appendChild(nodeG);
+
+  svg.onmousemove = ev => {
+    if (!_dragging) return;
+    const pt = getSvgPt(svg, ev), idx = _dragging.index;
+    _coords[idx] = pt;
+    _dragging.circle.setAttribute('cx', pt.x.toFixed(1));
+    _dragging.circle.setAttribute('cy', pt.y.toFixed(1));
+    _dragging.text.setAttribute('x', pt.x.toFixed(1));
+    _dragging.text.setAttribute('y', (pt.y + 22).toFixed(1));
+    edgeG.querySelectorAll('line').forEach(line => {
+      if (Number(line.dataset.i) === idx) { line.setAttribute('x1', pt.x.toFixed(1)); line.setAttribute('y1', pt.y.toFixed(1)); }
+      if (Number(line.dataset.j) === idx) { line.setAttribute('x2', pt.x.toFixed(1)); line.setAttribute('y2', pt.y.toFixed(1)); }
+    });
+  };
+  svg.onmouseup = svg.onmouseleave = () => {
+    if (_dragging) { _dragging.circle.closest('g').style.cursor = 'grab'; _dragging = null; }
+  };
+
+  // 범례
+  const dims = [...new Set(codes.map(c => c.split('_')[0]))];
+  const legG = document.createElementNS(NS, 'g');
+  dims.forEach((dim, i) => {
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x', 10 + i * 100); rect.setAttribute('y', 10);
+    rect.setAttribute('width', 14); rect.setAttribute('height', 14);
+    rect.setAttribute('fill', DIM_COLOR[dim] || '#64748b');
+    const lt = document.createElementNS(NS, 'text');
+    lt.setAttribute('x', 28 + i * 100); lt.setAttribute('y', 22);
+    lt.setAttribute('font-size', '12'); lt.setAttribute('fill', '#1f2937');
+    const dimName = dim === 'P' ? 'Perception(인식)' : dim === 'I' ? 'Interpretation(해석)' : 'Decision(결정)';
+    lt.textContent = dimName;
+    legG.appendChild(rect); legG.appendChild(lt);
+  });
+  svg.appendChild(legG);
+
+  sumEl.textContent = '코드 ' + n + '개 표시 (교사 ' + (_allData ? _allData.n_teachers : '?') + '명 기반), 유사도 ' + thr.toFixed(2) + ' 이상 연결선 ' + edges.length + '개';
+}
+
+// ── MDS ──
+function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+function nrm(v) { return Math.sqrt(dot(v, v)) || 1; }
+function nrml(v) { const n = nrm(v); return v.map(x => x / n); }
+function mv(M, v) { return M.map(row => row.reduce((s, x, j) => s + x * v[j], 0)); }
+
+function topKEigen(B, k, maxIter, tol) {
+  k = k || 2; maxIter = maxIter || 200; tol = tol || 1e-7;
+  const n = B.length, A = B.map(r => r.slice()), vals = [], vecs = [];
+  for (let comp = 0; comp < Math.min(k, n); comp++) {
+    let v = nrml(new Array(n).fill(0).map((_, i) => ((i + 1) * (comp + 3)) % 11 + 1));
+    for (let it = 0; it < maxIter; it++) {
+      const next = nrml(mv(A, v));
+      const diff = Math.sqrt(next.reduce((acc, x, i) => acc + Math.pow(x - v[i], 2), 0));
+      v = next;
+      if (diff < tol) break;
+    }
+    const Av = mv(A, v), lambda = dot(v, Av);
+    if (lambda <= 1e-9) continue;
+    vals.push(lambda); vecs.push(v.slice());
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) A[i][j] -= lambda * v[i] * v[j];
+  }
+  return { values: vals, vectors: vecs };
+}
+
+function classicalMds(dm) {
+  const n = dm.length;
+  if (n <= 1) return [{ x: 0, y: 0 }];
+  const d2 = dm.map(row => row.map(v => v * v));
+  const rm = d2.map(row => row.reduce((a, b) => a + b, 0) / n);
+  const cm = new Array(n).fill(0).map((_, j) => d2.reduce((s, row) => s + row[j], 0) / n);
+  const tot = rm.reduce((a, b) => a + b, 0) / n;
+  const B = d2.map((row, i) => row.map((v, j) => -0.5 * (v - rm[i] - cm[j] + tot)));
+  const { values: vals, vectors: vecs } = topKEigen(B, 2);
+  if (vals.length === 0) return new Array(n).fill(0).map((_, i) => ({ x: i / (n - 1 || 1), y: 0 }));
+  const v0 = vecs[0] || new Array(n).fill(0), v1 = vecs[1] || new Array(n).fill(0);
+  const s0 = Math.sqrt(Math.max(vals[0] || 0, 0)), s1 = Math.sqrt(Math.max(vals[1] || 0, 0));
+  return v0.map((x, i) => ({ x: x * s0, y: v1[i] * s1 }));
+}
+
+function scaleCoords(coords, W, H, pad) {
+  const xs = coords.map(p => p.x), ys = coords.map(p => p.y);
+  const mnX = Math.min.apply(null, xs), mxX = Math.max.apply(null, xs);
+  const mnY = Math.min.apply(null, ys), mxY = Math.max.apply(null, ys);
+  const sX = Math.max(1e-6, mxX - mnX), sY = Math.max(1e-6, mxY - mnY);
+  return coords.map(p => ({ x: pad + (p.x - mnX) / sX * (W - 2 * pad), y: pad + (p.y - mnY) / sY * (H - 2 * pad) }));
+}
+
+// ── 엑셀 다운로드 ──
+function downloadExcel() {
+  const r = buildMatrix();
+  if (r.error) { alert(r.error); return; }
+  const { codes, matrix } = r;
+  const dims = getDims();
+  const lines = ['"selected_dims","' + dims.join('|') + '"', '"n_teachers",' + (_allData ? _allData.n_teachers : '?'), '', '"code_1","code_2","cosine_similarity"'];
+  codes.forEach((c1, i) => codes.forEach((c2, j) => {
+    lines.push('"' + c1 + '","' + c2 + '",' + matrix[i][j].toFixed(6));
+  }));
+  const csv = '\uFEFF' + lines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'code_similarity_' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── 데이터 로드 ──
+window.onload = async () => {
+  const statusEl = document.getElementById('status-msg');
+  try {
+    const resp = await fetch('./code_similarity.json');
+    if (!resp.ok) throw new Error('파일 로드 실패: ' + resp.status);
+    _allData = await resp.json();
+    statusEl.textContent = '데이터 로드 완료 — 코드 ' + _allData.n_codes + '개, 교사 ' + _allData.n_teachers + '명';
+    runHeatmap();
+  } catch (e) {
+    statusEl.style.color = 'red';
+    statusEl.textContent = '오류: ' + e.message + ' (code_similarity.json 파일이 같은 폴더에 있는지 확인하세요.)';
+  }
+};
+</script>
+</body>
+</html>
