@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>교사 PID 구조분석</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: #f4f6fa;
+            color: #1f2937;
+            line-height: 1.75;
+            padding: 0;
+        }
+        .page-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d6da8 100%);
+            color: #fff;
+            padding: 40px 24px 34px;
+            text-align: center;
+        }
+        .page-header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+        .container { max-width: 960px; margin: -28px auto 60px; padding: 0 20px; position: relative; z-index: 1; }
+        .section {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            padding: 28px 36px;
+            margin-bottom: 24px;
+        }
+        .section h2 {
+            font-size: 19px;
+            color: #1e3a5f;
+            border-left: 4px solid #2d6da8;
+            padding-left: 14px;
+            margin-bottom: 16px;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #2c4a6e;
+            margin: 20px 0 10px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e5eaf1;
+        }
+        .tbl-wrap { overflow-x: auto; margin: 10px 0 16px; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 13.5px;
+            min-width: 480px;
+        }
+        table caption {
+            text-align: left;
+            font-weight: 700;
+            font-size: 14px;
+            color: #1e3a5f;
+            margin-bottom: 6px;
+        }
+        thead th {
+            background: #eaf1f9;
+            color: #1e3a5f;
+            font-weight: 700;
+            padding: 10px 12px;
+            border: 1px solid #d0dce8;
+            text-align: center;
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 8px 12px;
+            border: 1px solid #dfe5ec;
+            text-align: center;
+        }
+        tbody tr:nth-child(even) { background: #f8fafd; }
+        tbody tr:hover { background: #eef4fb; }
+        td.left { text-align: left; }
+        .highlight { background: #fff3cd !important; font-weight: 700; }
+        .num-top { color: #b45309; font-weight: 700; }
+        @media (max-width: 640px) {
+            .page-header h1 { font-size: 21px; }
+            .section { padding: 20px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-header">
+    <h1>교사 PID 구조분석</h1>
+</div>
+
+<div class="container">
+
+<!-- 1 -->
+<div class="section">
+    <h2>1. PID 차원별 코사인 유사도의 구조적 특성</h2>
+
+    <h3>1.1 해석(I)의 수렴과 의사결정(D)의 분화</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 1] PID 차원별 평균 코사인 유사도</caption>
+            <thead><tr><th>차원</th><th>P(인식)</th><th>I(해석)</th><th>D(의사결정)</th></tr></thead>
+            <tbody>
+                <tr><td>평균 코사인 유사도</td><td>0.258</td><td class="highlight">0.431</td><td>0.193</td></tr>
+                <tr><td>상대적 위치</td><td>중간</td><td><strong>최고 수렴</strong></td><td>최저 수렴</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 2 -->
+<div class="section">
+    <h2>2. D 그룹별 내부 유사도의 차이와 흡수·증폭 패턴</h2>
+
+    <h3>2.1 D 그룹별 내부·외부 유사도 비교</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 2] D 그룹별 내부·외부 코사인 유사도</caption>
+            <thead><tr><th>D 그룹(인원)</th><th>내부 유사도</th><th>외부 유사도</th><th>차이</th><th>차이 순위</th></tr></thead>
+            <tbody>
+                <tr><td>단순허용(7)</td><td>0.542</td><td>0.267</td><td class="num-top">0.275</td><td>1위</td></tr>
+                <tr><td>엄격통제(9)</td><td>0.570</td><td>0.321</td><td>0.249</td><td>2위</td></tr>
+                <tr><td>허용영역분리(10)</td><td>0.532</td><td>0.325</td><td>0.207</td><td>3위</td></tr>
+                <tr><td>적극적대응(8)</td><td>0.508</td><td>0.315</td><td>0.193</td><td>4위</td></tr>
+                <tr><td>주의깊은지도(6)</td><td>0.492</td><td>0.303</td><td>0.189</td><td>5위</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>2.2 그룹별 P·I·D 차원별 내부 유사도</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 3] D 그룹별 P·I·D 차원별 내부 코사인 유사도</caption>
+            <thead><tr><th>D 그룹</th><th>P 유사도</th><th>I 유사도</th><th>D 유사도</th><th>수렴 방향</th></tr></thead>
+            <tbody>
+                <tr><td>단순허용</td><td class="highlight">0.579</td><td>0.294</td><td>0.861</td><td>P 수렴</td></tr>
+                <tr><td>엄격통제</td><td>0.393</td><td class="highlight">0.531</td><td>0.837</td><td>I 수렴</td></tr>
+                <tr><td>적극적대응</td><td>0.233</td><td class="highlight">0.510</td><td>0.902</td><td>I 수렴</td></tr>
+                <tr><td>허용영역분리</td><td>0.196</td><td class="highlight">0.481</td><td>0.916</td><td>I 수렴</td></tr>
+                <tr><td>주의깊은지도</td><td>0.389</td><td>0.421</td><td>0.810</td><td>P ≈ I</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 4] D 그룹별 P·I 지배적 코드 분포</caption>
+            <thead><tr><th>D 그룹</th><th>P 지배 코드</th><th>공유율</th><th>I 지배 코드</th><th>공유율</th></tr></thead>
+            <tbody>
+                <tr><td>단순허용</td><td class="left">학생 AI 사용</td><td>86%</td><td class="left">남용과 의존</td><td>57%</td></tr>
+                <tr><td>엄격통제</td><td class="left">AI 사용 전반 사례</td><td>67%</td><td class="left">사고·탐구 역량</td><td>89%</td></tr>
+                <tr><td>적극적대응</td><td class="left">사회적 AI 확산</td><td>50%</td><td class="left">교육적 유용성</td><td>88%</td></tr>
+                <tr><td>허용영역분리</td><td class="left">AI 사용 전반 사례</td><td>50%</td><td class="left">사고·탐구 역량 &amp; 교육적 유용성</td><td>80%</td></tr>
+                <tr><td>주의깊은지도</td><td class="left">3개 코드 대등</td><td>50%</td><td class="left">AI 활용 역량 &amp; 교육적 유용성</td><td>67%</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>2.3 차이의 흡수·증폭 패턴 유형</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 5] D 그룹별 차이의 흡수·증폭 패턴</caption>
+            <thead><tr><th>D 그룹</th><th>P→I</th><th>I→D</th><th>전체 구조</th><th>판단 유형</th></tr></thead>
+            <tbody>
+                <tr><td>단순허용</td><td>증폭 (P수렴→I분산)</td><td>흡수 (I분산→D수렴)</td><td>수렴→분산→재수렴</td><td>상황 기반</td></tr>
+                <tr><td>엄격통제</td><td>흡수 (P수렴→I수렴)</td><td>유지 (I수렴→D수렴)</td><td>수렴→수렴→수렴</td><td>원칙 기반</td></tr>
+                <tr><td>적극적대응</td><td>흡수 (P분산→I수렴)</td><td>유지 (I수렴→D수렴)</td><td>분산→수렴→수렴</td><td>원칙 기반</td></tr>
+                <tr><td>허용영역분리</td><td>흡수 (P분산→I이중수렴)</td><td>유지 (I수렴→D수렴)</td><td>분산→이중수렴→수렴</td><td>균형 기반</td></tr>
+                <tr><td>주의깊은지도</td><td>불명확 (P분산→I분산)</td><td>흡수 (I분산→D수렴)</td><td>분산→분산→수렴</td><td>상황 기반</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 3 -->
+<div class="section">
+    <h2>3. 교차 그룹 고유사도 교사 쌍 분석</h2>
+
+    <h3>3.1 교차 그룹 고유사도 교사 쌍</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 6] 교차 그룹 고유사도 교사 쌍 (유사도 ≥ 0.65)</caption>
+            <thead><tr><th>교사 A</th><th>교사 B</th><th>A의 D그룹</th><th>B의 D그룹</th><th>유사도</th><th>P·I 공유</th></tr></thead>
+            <tbody>
+                <tr><td>T08(지명규)</td><td>T20(전다인)</td><td>단순허용</td><td>평가증거재구성</td><td class="num-top">0.75</td><td>P·I 완전 일치</td></tr>
+                <tr><td>T05(이성인)</td><td>T33(안서용)</td><td>적극적대응</td><td>엄격통제</td><td class="num-top">0.72</td><td>I 4/4 일치</td></tr>
+                <tr><td>T09(안별솔)</td><td>T31(김우빈)</td><td>적극적대응</td><td>주의깊은지도</td><td>0.68</td><td>I 3/3 일치</td></tr>
+                <tr><td>T31(김우빈)</td><td>T33(안서용)</td><td>주의깊은지도</td><td>엄격통제</td><td>0.67</td><td>P 완전 일치</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>3.2 T05(적극적대응)–T33(엄격통제) 사례</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 7] T05(이성인)와 T33(안서용)의 PID 코드 비교</caption>
+            <thead><tr><th>차원</th><th>T05(이성인)</th><th>T33(안서용)</th></tr></thead>
+            <tbody>
+                <tr><td>P</td><td class="left">사회적 AI 확산</td><td class="left">사회적 AI 확산, AI 사용 전반 사례</td></tr>
+                <tr><td>I</td><td class="left">AI 활용 역량, 사고·탐구 역량, 교육적 유용성, 평가의 타당성·공정성</td><td class="left">AI 활용 역량, 사고·탐구 역량, 교육적 유용성, 평가의 타당성·공정성, 금지·제한의 한계</td></tr>
+                <tr><td>D</td><td class="left"><strong>적극적 대응</strong></td><td class="left"><strong>엄격 통제</strong></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 4 -->
+<div class="section">
+    <h2>4. 논의: 교사 신념체계와 PID 구조의 관계</h2>
+
+    <h3>4.1 I 코드 보유 여부에 따른 P·D 분포</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 8] I 코드 보유 여부에 따른 P·D 분포 차이</caption>
+            <thead>
+                <tr><th>I 코드</th><th>P: 거시적 확산 인식</th><th>P: 미시적 사용 인식</th><th>D: 적극적 결정</th><th>D: 통제적 결정</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>교육적 유용성 보유 (23명)</td><td>39.1% (사회적 AI 확산)</td><td>30.4% (학생 AI 사용)</td><td>30.4% (적극적 대응)</td><td>26.1% (엄격 통제)</td></tr>
+                <tr><td>교육적 유용성 미보유 (12명)</td><td>16.7% (사회적 AI 확산)</td><td>41.7% (학생 AI 사용)</td><td>8.3% (적극적 대응)</td><td>25.0% (엄격 통제)</td></tr>
+                <tr><td>남용과 의존 보유 (14명)</td><td>14.3% (사회적 AI 확산)</td><td>42.9% (학생 AI 사용)</td><td>14.3% (적극적 대응)</td><td>35.7% (엄격 통제)</td></tr>
+                <tr><td>남용과 의존 미보유 (21명)</td><td>42.9% (사회적 AI 확산)</td><td>28.6% (학생 AI 사용)</td><td>28.6% (적극적 대응)</td><td>19.0% (엄격 통제)</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>4.2 해석의 풍부성과 결정의 정교성</h3>
+    <div class="tbl-wrap">
+        <table>
+            <caption>[표 9] 해석 풍부성(I 코드 수)에 따른 D 그룹 분포</caption>
+            <thead><tr><th>D 그룹</th><th>얕은 해석 (I 1-2개, 15명)</th><th>깊은 해석 (I 3개+, 20명)</th><th>차이</th></tr></thead>
+            <tbody>
+                <tr><td>단순허용</td><td>40.0%</td><td>5.0%</td><td class="num-top">-35.0%</td></tr>
+                <tr><td>엄격통제</td><td>20.0%</td><td>30.0%</td><td>+10.0%</td></tr>
+                <tr><td>적극적대응</td><td>20.0%</td><td>25.0%</td><td>+5.0%</td></tr>
+                <tr><td>허용영역분리</td><td>6.7%</td><td>45.0%</td><td class="num-top">+38.3%</td></tr>
+                <tr><td>주의깊은지도</td><td>13.3%</td><td>20.0%</td><td>+6.7%</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+
+</body>
+</html>
