@@ -184,11 +184,42 @@
             .container { margin: -32px 14px 24px; padding: 22px 18px; border-radius: 14px; }
             .hero-stat-value { font-size: 1.5rem; }
         }
-        .controls { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
-        .control-group { display: flex; flex-direction: column; gap: 5px; }
-        .action-buttons { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-        .action-buttons button { padding: 8px 14px; font-size: 12.5px; color: white; border: none; border-radius: 5px; cursor: pointer; opacity: 0.95; transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease; }
-        .action-buttons button:hover:enabled { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.12); opacity: 1; }
+        .controls { background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+        .control-top { display: flex; gap: 24px; flex-wrap: wrap; padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px dashed #cbd5e1; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group strong { font-size: 13px; color: #334155; }
+        .control-group label { font-size: 13px; color: #475569; }
+
+        /* 도구 카테고리 섹션 */
+        .tool-sections { display: flex; flex-direction: column; gap: 16px; }
+        .tool-section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+            transition: box-shadow 0.2s ease;
+        }
+        .tool-section:hover { box-shadow: 0 6px 18px rgba(15, 38, 66, 0.06); }
+        .tool-section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .tool-section-icon {
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .tool-section-title { font-size: 14px; font-weight: 800; color: #1e293b; margin: 0; }
+        .tool-section-desc { font-size: 12px; color: #64748b; margin: 2px 0 0; }
+        .tool-section-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* 카테고리별 아이콘 배경색 */
+        .tool-section.cat-basic .tool-section-icon { background: #dbeafe; color: #1d4ed8; }
+        .tool-section.cat-space .tool-section-icon { background: #cffafe; color: #0e7490; }
+        .tool-section.cat-cluster .tool-section-icon { background: #fed7aa; color: #c2410c; }
+        .tool-section.cat-structure .tool-section-icon { background: #fce7f3; color: #be185d; }
+
+        .action-buttons button { padding: 9px 16px; font-size: 13px; color: white; border: none; border-radius: 8px; cursor: pointer; opacity: 0.95; transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease; font-weight: 600; letter-spacing: -0.2px; }
+        .action-buttons button:hover:enabled { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.15); opacity: 1; }
         .action-buttons button:disabled { cursor: not-allowed; opacity: 0.45; box-shadow: none; transform: none; }
         .action-buttons button.active { outline: 3px solid rgba(17, 24, 39, 0.35); box-shadow: 0 0 0 2px rgba(255,255,255,0.8) inset; opacity: 1; }
         .btn-run { background: #3498db; }
@@ -298,32 +329,89 @@
         </p>
     </div>
     <div class="controls">
-        <div class="control-group">
-            <strong>1. 분석 영역 선택 (Vector Dimensions)</strong>
-            <label><input type="checkbox" class="dim" value="P" checked> Perception (인식: P)</label>
-            <label><input type="checkbox" class="dim" value="I" checked> Interpretation (해석: I)</label>
-            <label><input type="checkbox" class="dim" value="D" checked> Decision (결정: D)</label>
+        <!-- 상단: 분석 영역 / 필터 -->
+        <div class="control-top">
+            <div class="control-group">
+                <strong>1. 분석 영역 선택 (Vector Dimensions)</strong>
+                <label><input type="checkbox" class="dim" value="P" checked> Perception (인식: P)</label>
+                <label><input type="checkbox" class="dim" value="I" checked> Interpretation (해석: I)</label>
+                <label><input type="checkbox" class="dim" value="D" checked> Decision (결정: D)</label>
+            </div>
+
+            <div class="control-group">
+                <strong>2. 결정 방식(D) 필터맵 (Group Focus)</strong>
+                <select id="filter-d">
+                    <option value="all">전체 교사 보기</option>
+                </select>
+            </div>
         </div>
-        
-        <div class="control-group">
-            <strong>2. 결정 방식(D) 필터맵 (Group Focus)</strong>
-            <select id="filter-d">
-                <option value="all">전체 교사 보기</option>
-            </select>
-        </div>
-        
-        <div class="action-buttons">
-            <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵</button>
-            <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
-            <button id="btn-network" class="btn-network" onclick="openTeacherNetworkWindow()" title="d3 force-directed 2D 네트워크 (D 그룹 색상)">네트워크 맵(force)</button>
-            <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 (추천)</button>
-            <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
-            <button id="btn-dendro" class="btn-dendro" onclick="openClusterDendrogramWindow()" title="계층적 군집 덴드로그램 (절단선 드래그로 클러스터 수 조절)">클러스터 덴드로그램</button>
-            <button id="btn-code" class="btn-code" onclick="openCodeSimilarityWindow()">코드 유사도</button>
-            <button id="btn-pid" class="btn-code" style="background:#1e6091;" onclick="openPidStructureWindow()">PID 구조 분석</button>
-            <button id="btn-mds3d" class="btn-mds3d" onclick="openMds3dWindow()" title="19차원 PID → 3D 비계량 MDS (회전 가능)">3D MDS 맵</button>
-            <button id="btn-shepard" class="btn-shepard" onclick="openShepardWindow()" title="2D vs 3D MDS 거리 보존도 산점도">Shepard 진단</button>
-            <button id="btn-simheat" class="btn-simheat" onclick="openSimilarityHeatmapWindow()" title="35×35 전체 유사도 히트맵 (D 그룹별 정렬)">유사도 히트맵</button>
+
+        <!-- 하단: 카테고리별 도구 -->
+        <div class="tool-sections">
+
+            <!-- 기본 유사도 분석 -->
+            <div class="tool-section cat-basic">
+                <div class="tool-section-head">
+                    <div class="tool-section-icon">📊</div>
+                    <div>
+                        <div class="tool-section-title">기본 유사도 분석</div>
+                        <p class="tool-section-desc">전체 교사 간 유사도 패턴을 행렬과 수치로 한눈에 파악</p>
+                    </div>
+                </div>
+                <div class="action-buttons tool-section-buttons">
+                    <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵</button>
+                    <button id="btn-simheat" class="btn-simheat" onclick="openSimilarityHeatmapWindow()" title="35×35 전체 유사도 히트맵 (D 그룹별 정렬)">유사도 히트맵</button>
+                    <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 (추천)</button>
+                </div>
+            </div>
+
+            <!-- 공간 시각화 -->
+            <div class="tool-section cat-space">
+                <div class="tool-section-head">
+                    <div class="tool-section-icon">🗺️</div>
+                    <div>
+                        <div class="tool-section-title">공간 시각화 (MDS · 네트워크)</div>
+                        <p class="tool-section-desc">교사 간 거리를 2D/3D 공간에 배치하여 인식 패턴을 탐색</p>
+                    </div>
+                </div>
+                <div class="action-buttons tool-section-buttons">
+                    <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
+                    <button id="btn-mds3d" class="btn-mds3d" onclick="openMds3dWindow()" title="19차원 PID → 3D 비계량 MDS (회전 가능)">3D MDS 맵</button>
+                    <button id="btn-network" class="btn-network" onclick="openTeacherNetworkWindow()" title="d3 force-directed 2D 네트워크 (D 그룹 색상)">네트워크 맵(force)</button>
+                    <button id="btn-shepard" class="btn-shepard" onclick="openShepardWindow()" title="2D vs 3D MDS 거리 보존도 산점도">Shepard 진단</button>
+                </div>
+            </div>
+
+            <!-- 군집 분석 -->
+            <div class="tool-section cat-cluster">
+                <div class="tool-section-head">
+                    <div class="tool-section-icon">🎯</div>
+                    <div>
+                        <div class="tool-section-title">군집 분석</div>
+                        <p class="tool-section-desc">유사도 기반으로 교사를 자동으로 그룹화하여 공통 특성 도출</p>
+                    </div>
+                </div>
+                <div class="action-buttons tool-section-buttons">
+                    <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
+                    <button id="btn-dendro" class="btn-dendro" onclick="openClusterDendrogramWindow()" title="계층적 군집 덴드로그램 (절단선 드래그로 클러스터 수 조절)">클러스터 덴드로그램</button>
+                </div>
+            </div>
+
+            <!-- 구조·코드 분석 -->
+            <div class="tool-section cat-structure">
+                <div class="tool-section-head">
+                    <div class="tool-section-icon">🔬</div>
+                    <div>
+                        <div class="tool-section-title">구조 · 코드 분석</div>
+                        <p class="tool-section-desc">PID 구조와 개별 코드 단위의 미시적 유사도 분석</p>
+                    </div>
+                </div>
+                <div class="action-buttons tool-section-buttons">
+                    <button id="btn-code" class="btn-code" onclick="openCodeSimilarityWindow()">코드 유사도</button>
+                    <button id="btn-pid" class="btn-code" style="background:#1e6091;" onclick="openPidStructureWindow()">PID 구조 분석</button>
+                </div>
+            </div>
+
         </div>
     </div>
 
