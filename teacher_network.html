@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>교사 유사도 네트워크 시각화</title>
+    <title>교사 유사도 네트워크 시각화 (force-directed)</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -25,6 +25,22 @@
             font-size: 0.875rem;
             font-family: 'Malgun Gothic', sans-serif;
         }
+        #legend-box {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(255,255,255,0.96);
+            border: 1px solid #d8e0ea;
+            border-radius: 10px;
+            padding: 10px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            font-family: 'Malgun Gothic', sans-serif;
+            z-index: 20;
+            min-width: 180px;
+        }
+        #legend-box .lg-title { font-size: 12px; font-weight: 700; color: #1f3e5b; margin-bottom: 6px; }
+        #legend-box .lg-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #1e293b; padding: 2px 0; }
+        #legend-box .lg-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px #cbd5e1; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -32,7 +48,7 @@
     <header class="bg-white border-b p-4 shadow-sm z-10">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-xl font-bold text-slate-800">교사 유사도 네트워크 시각화</h1>
+                <h1 class="text-xl font-bold text-slate-800">교사 유사도 네트워크 시각화 <span class="text-xs font-normal text-slate-400">(d3 force-directed · 노드 색상 = Decision 그룹)</span></h1>
                 <p id="data-desc" class="text-sm text-slate-500">코사인 유사도 거리 데이터 로딩 중...</p>
             </div>
 
@@ -65,12 +81,30 @@
 
     <main class="flex-1 relative overflow-hidden" id="canvas-container">
         <svg id="network-svg" class="w-full h-full"></svg>
+        <div id="legend-box"></div>
         <div id="tooltip"></div>
     </main>
 
 <script>
+    // ── 투고논문 Figure 2 / 2D 거리 맵과 동일한 D 그룹 팔레트 ──
+    const D_GROUP_PALETTE = {
+        "단순 허용":        "#3b82f6",
+        "주의와 지도":      "#f97316",
+        "적극적 도입":      "#06b6d4",
+        "활용 영역 분리":   "#16a34a",
+        "엄격 통제":        "#dc2626",
+        "평가 준거 재구성": "#9333ea",
+        "기타":             "#9ca3af",
+        "미부여":           "#9ca3af"
+    };
+    const D_GROUP_ORDER = ["단순 허용","주의와 지도","적극적 도입","활용 영역 분리","엄격 통제","평가 준거 재구성","기타"];
+    // 표준 외 컬럼(예: D_수정됨, D_12)은 dominant 계산에서 제외
+    const D_VALID_GROUPS = new Set(["단순 허용","주의와 지도","적극적 도입","활용 영역 분리","엄격 통제","평가 준거 재구성"]);
+    function colorForGroup(g) { return D_GROUP_PALETTE[g] || "#9ca3af"; }
+
     let rawData = [];      // [{ source, target, distance }] — ID 기준
     let nameMap = {};      // { T01: '김지수', ... }
+    let groupMap = {};     // { T01: '주의와 지도', ... }
     let simulation;
     const svg = d3.select("#network-svg");
     const tooltip = d3.select("#tooltip");
@@ -92,6 +126,30 @@
         if (rawData.length > 0) updateGraph(parseFloat(val));
     }
 
+    function dominantDGroupFromRow(row) {
+        let bestKey = "기타";
+        let bestVal = -1;
+        Object.keys(row).forEach(k => {
+            if (!k.startsWith("D_")) return;
+            const groupName = k.slice(2);
+            if (!D_VALID_GROUPS.has(groupName)) return;  // D_수정됨, D_12 등 제외
+            const v = Number(row[k]) || 0;
+            if (v > bestVal) { bestVal = v; bestKey = groupName; }
+        });
+        return bestVal > 0 ? bestKey : "미부여";
+    }
+
+    function renderLegend(presentGroups) {
+        const box = document.getElementById('legend-box');
+        const ordered = D_GROUP_ORDER.filter(g => presentGroups.has(g));
+        // 미부여를 마지막에 표시 (있을 경우)
+        if (presentGroups.has("미부여")) ordered.push("미부여");
+        const rows = ordered.map(g =>
+            `<div class="lg-row"><span class="lg-dot" style="background:${colorForGroup(g)}"></span>${g}</div>`
+        ).join("");
+        box.innerHTML = `<div class="lg-title">Decision 그룹 범례</div>${rows}`;
+    }
+
     function updateGraph(threshold) {
         svg.selectAll("*").remove();
 
@@ -105,7 +163,7 @@
             rawData.forEach(d => { nodesSet.add(d.source); nodesSet.add(d.target); });
         }
 
-        const nodes = Array.from(nodesSet).map(id => ({ id }));
+        const nodes = Array.from(nodesSet).map(id => ({ id, group: groupMap[id] || "미부여" }));
         const links = filteredLinks.map(d => ({ ...d }));
 
         const W = document.getElementById('canvas-container').clientWidth;
@@ -117,8 +175,6 @@
             .extent([[0, 0], [W, H]])
             .scaleExtent([0.1, 8])
             .on("zoom", event => g.attr("transform", event.transform)));
-
-        const colorScale = d3.scaleSequential(d3.interpolateTurbo).domain([0, Math.max(1, nodes.length - 1)]);
 
         simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.distance * 200 + 50))
@@ -134,14 +190,15 @@
         const node = g.append("g").selectAll("circle")
             .data(nodes).join("circle")
             .attr("class", "node")
-            .attr("r", 7)
-            .attr("fill", (d, i) => colorScale(i))
+            .attr("r", 8)
+            .attr("fill", d => colorForGroup(d.group))
             .call(drag(simulation))
             .on("mouseover", (event, d) => {
                 tooltip.transition().duration(150).style("opacity", 0.97);
                 const name = nameMap[d.id] || '';
                 tooltip.html(
                     `<strong>${d.id}</strong>${name ? ' · ' + name : ''}<br>` +
+                    `<span style="font-size:11px;color:#475569">D 그룹: <strong style="color:${colorForGroup(d.group)}">${d.group}</strong></span><br>` +
                     `<span style="font-size:11px;color:#64748b">드래그하여 이동 가능</span>`
                 )
                 .style("left", (event.pageX + 14) + "px")
@@ -153,7 +210,7 @@
             .data(nodes).join("text")
             .attr("class", "label")
             .text(d => displayName(d.id))
-            .attr("dx", 10).attr("dy", 4);
+            .attr("dx", 11).attr("dy", 4);
 
         simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
@@ -162,9 +219,13 @@
             label.attr("x", d => d.x).attr("y", d => d.y);
         });
 
+        // 범례 — 현재 화면에 표시된 D 그룹만
+        const presentGroups = new Set(nodes.map(n => n.group));
+        renderLegend(presentGroups);
+
         // 연결선 수 요약
         document.getElementById('data-desc').textContent =
-            `교사 ${nodes.length}명 표시 · 연결선 ${links.length}개 (거리 ≤ ${threshold.toFixed(2)})`;
+            `교사 ${nodes.length}명 표시 · 연결선 ${links.length}개 (거리 ≤ ${threshold.toFixed(2)}, 즉 유사도 ≥ ${(1-threshold).toFixed(2)})`;
     }
 
     function drag(simulation) {
@@ -198,12 +259,14 @@
     window.onload = async () => {
         const descEl = document.getElementById('data-desc');
         try {
-            // 교사명 매핑 로드
+            // 교사명 + D 그룹 매핑 로드
             const jsonRes = await fetch('./data_for_app.json');
             if (jsonRes.ok) {
                 const jsonRows = await jsonRes.json();
                 jsonRows.forEach(r => {
-                    if (r.Teacher_ID) nameMap[r.Teacher_ID] = r['교사명'] || '';
+                    if (!r.Teacher_ID) return;
+                    nameMap[r.Teacher_ID] = r['교사명'] || '';
+                    groupMap[r.Teacher_ID] = dominantDGroupFromRow(r);
                 });
             }
 

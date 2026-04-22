@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유사도 기반 클러스터 분석 — 계층적 덴드로그램</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #1f2937;
+        }
+        header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 22px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        header h1 {
+            margin: 0 0 4px;
+            font-size: 18px;
+            color: #0f3a5f;
+        }
+        header .sub {
+            font-size: 12px;
+            color: #5f7791;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 22px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #2f3d4b;
+        }
+        .control label {
+            font-weight: 600;
+        }
+        .control input[type=range] {
+            width: 280px;
+            accent-color: #0d6efd;
+        }
+        .control select {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #c7d4e3;
+            font-size: 12.5px;
+            background: white;
+        }
+        .pill {
+            display: inline-block;
+            background: #eef4fc;
+            color: #0d3a64;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        main {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 18px;
+            padding: 18px 22px;
+            min-height: calc(100vh - 130px);
+        }
+        #panel-tree {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            overflow-x: auto;
+        }
+        #dendrogram {
+            display: block;
+            width: 100%;
+            min-width: 720px;
+            height: 920px;
+        }
+        .axis-line { stroke: #cbd5e1; stroke-width: 1; }
+        .axis-tick { stroke: #94a3b8; stroke-width: 1; }
+        .axis-label { font-size: 10.5px; fill: #475569; font-family: 'Malgun Gothic', sans-serif; }
+        .axis-title { font-size: 11.5px; fill: #334155; font-weight: 600; font-family: 'Malgun Gothic', sans-serif; }
+        .tree-link { fill: none; stroke-width: 1.4; }
+        .leaf-label {
+            font-size: 11.5px;
+            font-family: 'Malgun Gothic', sans-serif;
+            fill: #1e293b;
+            cursor: pointer;
+        }
+        .leaf-dot {
+            stroke: #ffffff;
+            stroke-width: 1.4;
+        }
+        .cut-line {
+            stroke: #dc2626;
+            stroke-width: 1.6;
+            stroke-dasharray: 6 3;
+            cursor: ew-resize;
+        }
+        .cut-handle {
+            fill: #dc2626;
+            cursor: ew-resize;
+        }
+        .cut-text {
+            font-size: 11px;
+            fill: #b91c1c;
+            font-weight: 700;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+        #panel-side {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 14px;
+            color: #0f3a5f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card .meta { font-size: 11.5px; color: #6b7791; }
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            padding: 3px 0;
+        }
+        .legend-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            border: 1px solid #fff;
+            box-shadow: 0 0 0 1px #cbd5e1;
+        }
+        #cluster-list { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+        .cluster-item {
+            border: 1px solid #d8e0ea;
+            border-radius: 8px;
+            padding: 8px 10px;
+            background: #f8fbff;
+            font-size: 12px;
+        }
+        .cluster-item .ci-title {
+            font-weight: 700;
+            color: #0f3a5f;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .cluster-item .ci-members {
+            color: #1e293b;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .cluster-item .ci-stats {
+            color: #5f7791;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+        .swatch {
+            display: inline-block;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+            border: 1px solid #fff;
+            box-shadow: 0 0 0 1px #cbd5e1;
+        }
+        .help-icon { color: #94a3b8; cursor: help; }
+        #status { font-size: 12px; color: #6b7791; padding: 6px 0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>유사도 기반 클러스터 분석 — 계층적 덴드로그램</h1>
+    <div class="sub">35명 교사 · 코사인 거리(1−유사도) · 덴드로그램은 <span class="pill" id="method-pill">UPGMA(평균연결)</span> 기준 · 코페네틱 상관 <span id="coph-val">—</span></div>
+
+    <div class="controls">
+        <div class="control">
+            <label>연결법</label>
+            <select id="method-select" onchange="onMethodChange()">
+                <option value="average">평균(UPGMA, 권장)</option>
+                <option value="ward">Ward</option>
+                <option value="complete">최장거리(complete)</option>
+                <option value="single">최단거리(single)</option>
+            </select>
+        </div>
+        <div class="control">
+            <label>유사도 절단 기준</label>
+            <input type="range" id="cut-slider" min="0.05" max="0.95" step="0.01" value="0.65" oninput="onCutInput()">
+            <span class="pill" id="cut-pill">유사도 ≥ 0.65 (거리 ≤ 0.35)</span>
+        </div>
+        <div class="control">
+            <label>레이블</label>
+            <select id="label-mode" onchange="render()">
+                <option value="id">교사 ID</option>
+                <option value="name">교사명</option>
+                <option value="both">ID · 이름</option>
+            </select>
+        </div>
+    </div>
+    <div id="status">데이터를 불러오는 중입니다...</div>
+</header>
+
+<main>
+    <div id="panel-tree">
+        <svg id="dendrogram" viewBox="0 0 1080 920" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <aside id="panel-side">
+        <div class="card">
+            <h3>현재 절단 결과 <span class="meta" id="cut-summary"></span></h3>
+            <div id="cluster-list"></div>
+        </div>
+        <div class="card">
+            <h3>D 그룹 색상 범례</h3>
+            <div id="legend-area"></div>
+            <div class="meta" style="margin-top:8px;">잎(leaf) 점·라벨 색상 = 각 교사의 주요 D 그룹.</div>
+        </div>
+        <div class="card">
+            <h3>덴드로그램 읽기</h3>
+            <div class="meta" style="line-height:1.6;">
+                · 가로축은 두 군이 합쳐지는 거리(=1−유사도)입니다.<br>
+                · 빨간 점선 위치를 좌우로 끌어 절단 기준을 바꿀 수 있습니다.<br>
+                · 절단 기준의 <strong>왼쪽</strong>에서 만나는 가지가 같은 클러스터입니다.<br>
+                · 잎 색상이 D 그룹과 일치할수록, 인식 패턴이 결정 방식과 동조함을 시사합니다.
+            </div>
+        </div>
+    </aside>
+</main>
+
+<script>
+    // ── D 그룹 표준 팔레트 (메인 페이지와 동일) ──
+    const D_GROUP_PALETTE = {
+        "단순 허용":        "#3b82f6",
+        "주의와 지도":      "#f97316",
+        "적극적 도입":      "#06b6d4",
+        "활용 영역 분리":   "#16a34a",
+        "엄격 통제":        "#dc2626",
+        "평가 준거 재구성": "#9333ea",
+        "기타":             "#9ca3af",
+        "미부여":           "#9ca3af"
+    };
+    const D_GROUP_ORDER = ["단순 허용","주의와 지도","적극적 도입","활용 영역 분리","엄격 통제","평가 준거 재구성","미부여"];
+    const METHOD_LABEL = {
+        "average":  "UPGMA(평균연결)",
+        "ward":     "Ward",
+        "complete": "최장거리",
+        "single":   "최단거리"
+    };
+    function colorForGroup(g) { return D_GROUP_PALETTE[g] || "#9ca3af"; }
+
+    let DATA = null;        // cluster_dendrogram_data.json
+    let nameMap = {};       // T01 → 김지수
+    let curMethod = "average";
+    let curCutSim = 0.65;   // 유사도 기준 (거리 = 1 - sim)
+
+    // SVG 레이아웃 정수
+    const SVG_W = 1080, SVG_H = 920;
+    const PADDING = { top: 20, right: 32, bottom: 38, left: 60 };
+    const TREE_X0 = PADDING.left;            // 잎 위치 (왼쪽)
+    const TREE_X1 = SVG_W - PADDING.right - 130; // 라벨 영역 (오른쪽 130px)
+    const LABEL_X = TREE_X1 + 12;
+    const TREE_Y0 = PADDING.top;
+    const TREE_Y1 = SVG_H - PADDING.bottom;
+
+    async function loadData() {
+        const status = document.getElementById('status');
+        try {
+            const [resData, resJson] = await Promise.all([
+                fetch('./cluster_dendrogram_data.json'),
+                fetch('./data_for_app.json')
+            ]);
+            if (!resData.ok) throw new Error('cluster_dendrogram_data.json 로드 실패');
+            DATA = await resData.json();
+            if (resJson.ok) {
+                const rows = await resJson.json();
+                rows.forEach(r => {
+                    if (r.Teacher_ID) nameMap[r.Teacher_ID] = r['교사명'] || '';
+                });
+            }
+
+            // 상태 표시
+            status.textContent = `${DATA.teacher_ids.length}명 교사 · ${Object.keys(DATA.methods).length}가지 연결법 비교 가능`;
+            renderLegend();
+            render();
+        } catch (e) {
+            status.style.color = '#b91c1c';
+            status.textContent = '오류: ' + e.message;
+        }
+    }
+
+    function renderLegend() {
+        const area = document.getElementById('legend-area');
+        // 데이터에 등장하는 D 그룹만 표시
+        const present = new Set(DATA.d_groups);
+        const rows = D_GROUP_ORDER.filter(g => present.has(g)).map(g =>
+            `<div class="legend-row"><span class="legend-dot" style="background:${colorForGroup(g)}"></span>${g}</div>`
+        );
+        area.innerHTML = rows.join("");
+    }
+
+    function onMethodChange() {
+        curMethod = document.getElementById('method-select').value;
+        document.getElementById('method-pill').textContent = METHOD_LABEL[curMethod];
+        render();
+    }
+
+    function onCutInput() {
+        curCutSim = parseFloat(document.getElementById('cut-slider').value);
+        document.getElementById('cut-pill').textContent =
+            `유사도 ≥ ${curCutSim.toFixed(2)} (거리 ≤ ${(1 - curCutSim).toFixed(2)})`;
+        render();
+    }
+
+    // ── 연결행렬 Z 로 fcluster 와 유사한 절단 클러스터 산출 ──
+    // Z[i] = [a, b, dist, count] : 합쳐진 새 군의 인덱스는 n + i
+    function clustersFromCut(Z, n, cutDist) {
+        // 부모 매핑: 인덱스(0..2n-2) → parent
+        const parent = new Array(2 * n - 1).fill(-1);
+        for (let i = 0; i < Z.length; i++) {
+            const newIdx = n + i;
+            parent[Z[i][0]] = newIdx;
+            parent[Z[i][1]] = newIdx;
+        }
+        // Find with path compression — 단, 절단 기준 위쪽으로는 올라가지 않음
+        // 절단 기준 cutDist 미만에서 합쳐진 머지만 따라가서 root 를 찾음
+        function root(idx) {
+            let cur = idx;
+            while (parent[cur] !== -1) {
+                const par = parent[cur];
+                const mergeIdx = par - n;
+                if (mergeIdx < 0 || mergeIdx >= Z.length) break;
+                if (Z[mergeIdx][2] > cutDist) break; // 이 머지는 절단선 위 → 더 올라가지 않음
+                cur = par;
+            }
+            return cur;
+        }
+        const labels = [];
+        for (let i = 0; i < n; i++) labels.push(root(i));
+        return labels;
+    }
+
+    function buildClusters(labels) {
+        const map = new Map();
+        labels.forEach((lab, i) => {
+            if (!map.has(lab)) map.set(lab, []);
+            map.get(lab).push(i);
+        });
+        return Array.from(map.values());
+    }
+
+    // ── 메인 렌더링 ──
+    function render() {
+        if (!DATA) return;
+
+        const meth = DATA.methods[curMethod];
+        if (!meth) return;
+        document.getElementById('coph-val').textContent = meth.cophenetic.toFixed(3);
+        document.getElementById('method-pill').textContent = METHOD_LABEL[curMethod];
+
+        const Z = meth.Z;
+        const n = DATA.teacher_ids.length;
+        const cutDist = 1.0 - curCutSim;
+
+        // ── 연결행렬 Z 로부터 잎 순서 계산 (ddata.leaves) ──
+        // scipy 의 dendrogram leaves 는 method='average' 에서 미리 계산되어 있지만,
+        // 다른 method 도 같은 leaves 를 사용하면 시각화가 일관되지 않으므로,
+        // Z 를 후위순회해서 method 별 잎 순서를 다시 산출.
+        const leafOrder = computeLeafOrder(Z, n);
+
+        // 거리축 최대값 = Z 의 마지막 머지 거리
+        const dMax = Math.max(...Z.map(r => r[2])) * 1.05 + 1e-9;
+        const xScale = d => TREE_X0 + (d / dMax) * (TREE_X1 - TREE_X0);
+        const yScale = posIndex => TREE_Y0 + (posIndex + 0.5) * ((TREE_Y1 - TREE_Y0) / n);
+
+        // 노드 좌표 캐시: 인덱스 i (0..2n-2) → { x, y }
+        const nodes = new Array(2 * n - 1);
+        leafOrder.forEach((leafIdx, pos) => {
+            nodes[leafIdx] = { x: xScale(0), y: yScale(pos) };
+        });
+        for (let i = 0; i < Z.length; i++) {
+            const a = Z[i][0], b = Z[i][1], dist = Z[i][2];
+            const newIdx = n + i;
+            const ay = nodes[a].y, by = nodes[b].y;
+            nodes[newIdx] = { x: xScale(dist), y: (ay + by) / 2 };
+        }
+
+        // ── SVG 그리기 ──
+        const svg = document.getElementById('dendrogram');
+        svg.innerHTML = "";
+        const NS = "http://www.w3.org/2000/svg";
+
+        // 가로 축 (거리)
+        const axisG = el(NS, "g", {});
+        // 베이스 라인
+        axisG.appendChild(el(NS, "line", {
+            x1: TREE_X0, y1: TREE_Y1, x2: TREE_X1, y2: TREE_Y1,
+            class: "axis-line"
+        }));
+        // 눈금 (0, 0.1, ..., dMax 부근)
+        const tickStep = 0.1;
+        for (let t = 0; t <= dMax; t += tickStep) {
+            const x = xScale(t);
+            axisG.appendChild(el(NS, "line", {
+                x1: x, y1: TREE_Y1, x2: x, y2: TREE_Y1 + 5,
+                class: "axis-tick"
+            }));
+            axisG.appendChild(el(NS, "text", {
+                x: x, y: TREE_Y1 + 17, "text-anchor": "middle", class: "axis-label"
+            }, t.toFixed(1)));
+        }
+        axisG.appendChild(el(NS, "text", {
+            x: (TREE_X0 + TREE_X1) / 2, y: TREE_Y1 + 32,
+            "text-anchor": "middle", class: "axis-title"
+        }, "코사인 거리 (1 − 유사도)"));
+        svg.appendChild(axisG);
+
+        // 절단 결과 → 클러스터별 색상 (잎 라벨에는 D 그룹 색상, 가지에는 클러스터 색)
+        const clusterLabels = clustersFromCut(Z, n, cutDist);
+        const clusterPalette = ['#0ea5e9','#10b981','#f59e0b','#ec4899','#8b5cf6','#22c55e','#ef4444','#14b8a6','#a855f7','#fb923c','#06b6d4','#84cc16','#f43f5e'];
+        const clusterIdToColor = new Map();
+        const uniqueClusters = Array.from(new Set(clusterLabels));
+        uniqueClusters.forEach((c, i) => clusterIdToColor.set(c, clusterPalette[i % clusterPalette.length]));
+        // 단일 멤버 클러스터(잎 1개) 는 회색 처리
+        const counts = {};
+        clusterLabels.forEach(c => counts[c] = (counts[c] || 0) + 1);
+
+        // 가지 그리기 — 각 노드 i 의 자식 a,b 와 자기 자신을 ⊐(왼쪽 잎방향) 로 연결
+        const linkG = el(NS, "g", {});
+        for (let i = 0; i < Z.length; i++) {
+            const a = Z[i][0], b = Z[i][1];
+            const newIdx = n + i;
+            const px = nodes[newIdx].x, py = nodes[newIdx].y;
+            const ax = nodes[a].x, ay = nodes[a].y;
+            const bx = nodes[b].x, by = nodes[b].y;
+
+            // 이 머지가 절단선 아래(같은 클러스터)면 클러스터 색상,
+            // 절단선 위(클러스터 분리)면 회색
+            const aboveCut = Z[i][2] > cutDist;
+            let color = '#94a3b8';
+            if (!aboveCut) {
+                // 자식들의 잎 라벨 클러스터 ID 가져와 색상 부여
+                // (자식이 잎이면 그 잎의 라벨, 머지면 머지의 임의 자손 잎 사용)
+                const leafA = anyLeafBelow(Z, n, a);
+                color = clusterIdToColor.get(clusterLabels[leafA]) || '#94a3b8';
+                if (counts[clusterLabels[leafA]] === 1) color = '#cbd5e1';
+            }
+
+            // 수평 라인 a → newIdx
+            linkG.appendChild(el(NS, "path", {
+                d: `M${ax},${ay} L${px},${ay}`,
+                class: "tree-link", stroke: color
+            }));
+            // 수평 라인 b → newIdx
+            linkG.appendChild(el(NS, "path", {
+                d: `M${bx},${by} L${px},${by}`,
+                class: "tree-link", stroke: color
+            }));
+            // 수직 라인 (a-수평끝) ↔ (b-수평끝)
+            linkG.appendChild(el(NS, "path", {
+                d: `M${px},${ay} L${px},${by}`,
+                class: "tree-link", stroke: color
+            }));
+        }
+        svg.appendChild(linkG);
+
+        // 잎 점 + 라벨
+        const labelMode = document.getElementById('label-mode').value;
+        const leafG = el(NS, "g", {});
+        leafOrder.forEach((leafIdx, pos) => {
+            const tid = DATA.teacher_ids[leafIdx];
+            const grp = DATA.d_groups[leafIdx];
+            const fill = colorForGroup(grp);
+            const x = nodes[leafIdx].x, y = nodes[leafIdx].y;
+
+            const dot = el(NS, "circle", {
+                cx: x, cy: y, r: 5, fill: fill, class: "leaf-dot"
+            });
+            const tip = el(NS, "title", {}, `${tid} · ${nameMap[tid]||""}\nD 그룹: ${grp}\n클러스터 #${clusterLabels[leafIdx]+1}`);
+            dot.appendChild(tip);
+            leafG.appendChild(dot);
+
+            const labelText = labelMode === 'name'
+                ? (nameMap[tid] || tid)
+                : labelMode === 'both'
+                    ? `${tid} · ${nameMap[tid] || ''}`.trim().replace(/·\s*$/,'')
+                    : tid;
+            leafG.appendChild(el(NS, "text", {
+                x: LABEL_X, y: y + 4, fill: fill, class: "leaf-label",
+                "font-weight": 600
+            }, labelText));
+        });
+        svg.appendChild(leafG);
+
+        // 절단선 (드래그 가능)
+        const cutG = el(NS, "g", {});
+        const cx = xScale(cutDist);
+        const cutLine = el(NS, "line", {
+            x1: cx, y1: TREE_Y0 - 4, x2: cx, y2: TREE_Y1, class: "cut-line"
+        });
+        cutG.appendChild(cutLine);
+        cutG.appendChild(el(NS, "rect", {
+            x: cx - 6, y: TREE_Y0 - 14, width: 12, height: 12,
+            class: "cut-handle", rx: 2
+        }));
+        cutG.appendChild(el(NS, "text", {
+            x: cx + 9, y: TREE_Y0 - 4, class: "cut-text"
+        }, `↞ 유사도 ${curCutSim.toFixed(2)} 절단`));
+        svg.appendChild(cutG);
+
+        // 절단선 드래그 핸들러
+        let dragging = false;
+        cutG.addEventListener("mousedown", () => { dragging = true; });
+        svg.addEventListener("mousemove", e => {
+            if (!dragging) return;
+            const pt = svgPoint(svg, e);
+            const xClamped = Math.max(TREE_X0, Math.min(TREE_X1, pt.x));
+            const dist = (xClamped - TREE_X0) / (TREE_X1 - TREE_X0) * dMax;
+            const sim = Math.max(0.05, Math.min(0.95, 1 - dist));
+            document.getElementById('cut-slider').value = sim.toFixed(2);
+            curCutSim = sim;
+            document.getElementById('cut-pill').textContent =
+                `유사도 ≥ ${sim.toFixed(2)} (거리 ≤ ${(1 - sim).toFixed(2)})`;
+            render();
+        });
+        svg.addEventListener("mouseup", () => { dragging = false; });
+        svg.addEventListener("mouseleave", () => { dragging = false; });
+
+        // ── 사이드 패널: 클러스터 카드 ──
+        const clusterGroups = buildClusters(clusterLabels);
+        const cards = clusterGroups
+            .map(members => ({
+                members: members.map(i => DATA.teacher_ids[i]),
+                idsIdx: members,
+                groups: members.map(i => DATA.d_groups[i]),
+                color: clusterIdToColor.get(clusterLabels[members[0]]) || '#cbd5e1',
+                avgSim: avgPairwise(DATA.similarity_matrix, members)
+            }))
+            .sort((a, b) => b.members.length - a.members.length || (b.avgSim||0) - (a.avgSim||0));
+
+        const summaryEl = document.getElementById('cut-summary');
+        const totalClusters = cards.length;
+        const multiClusters = cards.filter(c => c.members.length > 1).length;
+        const singletons = cards.filter(c => c.members.length === 1).length;
+        summaryEl.textContent = `클러스터 ${totalClusters}개 (다인 ${multiClusters} · 단독 ${singletons})`;
+
+        const listEl = document.getElementById('cluster-list');
+        listEl.innerHTML = cards.map((c, i) => {
+            const groupCounts = {};
+            c.groups.forEach(g => groupCounts[g] = (groupCounts[g]||0) + 1);
+            const groupChips = Object.entries(groupCounts)
+                .sort((a,b)=>b[1]-a[1])
+                .map(([g,n]) => `<span class="swatch" style="background:${colorForGroup(g)}"></span>${g}(${n})`)
+                .join(' · ');
+            const memberDisplay = c.members.map(tid => {
+                const idx = DATA.teacher_ids.indexOf(tid);
+                const col = colorForGroup(DATA.d_groups[idx]);
+                return `<span style="color:${col}; font-weight:600">${tid}</span>`;
+            }).join(', ');
+            const avgSimText = c.members.length > 1 ? `평균 유사도 ${c.avgSim.toFixed(2)}` : '단독 노드';
+            return `
+                <div class="cluster-item" style="border-left: 4px solid ${c.color};">
+                    <div class="ci-title">
+                        <span>클러스터 ${i+1} · ${c.members.length}명</span>
+                        <span class="meta">${avgSimText}</span>
+                    </div>
+                    <div class="ci-members">${memberDisplay}</div>
+                    <div class="ci-stats">${groupChips}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function anyLeafBelow(Z, n, idx) {
+        if (idx < n) return idx;
+        // BFS 자손 잎 하나 반환
+        const stack = [idx];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur < n) return cur;
+            const mergeIdx = cur - n;
+            stack.push(Z[mergeIdx][0], Z[mergeIdx][1]);
+        }
+        return 0;
+    }
+
+    function computeLeafOrder(Z, n) {
+        // Z 의 마지막 머지부터 좌→우 후위순회로 잎 순서 수집
+        // (scipy 와 정확히 일치하지 않을 수 있으나 시각적으로 잘 분포함)
+        const order = [];
+        function visit(idx) {
+            if (idx < n) { order.push(idx); return; }
+            const m = Z[idx - n];
+            visit(m[0]);
+            visit(m[1]);
+        }
+        visit(2 * n - 2);
+        return order;
+    }
+
+    function avgPairwise(simMat, indices) {
+        if (indices.length < 2) return 1;
+        let s = 0, c = 0;
+        for (let a = 0; a < indices.length; a++)
+            for (let b = a+1; b < indices.length; b++) {
+                s += simMat[indices[a]][indices[b]];
+                c += 1;
+            }
+        return c > 0 ? s / c : 0;
+    }
+
+    function svgPoint(svg, evt) {
+        const pt = svg.createSVGPoint();
+        pt.x = evt.clientX;
+        pt.y = evt.clientY;
+        return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function el(NS, tag, attrs, text) {
+        const e = document.createElementNS(NS, tag);
+        Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
+        if (text != null) e.textContent = text;
+        return e;
+    }
+
+    loadData();
+</script>
+</body>
+</html>

@@ -4,9 +4,186 @@
     <meta charset="UTF-8">
     <title>과학 교사 생성형 AI 인식 유사도 분석기</title>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f8f9fa; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; background-color: #f8f9fa; }
+
+        /* ========================================================
+           히어로 섹션 (랜딩)
+           ======================================================== */
+        .hero {
+            position: relative;
+            background:
+              radial-gradient(circle at 15% 20%, rgba(255,255,255,0.18) 0%, transparent 35%),
+              radial-gradient(circle at 85% 80%, rgba(52, 152, 219, 0.35) 0%, transparent 45%),
+              linear-gradient(135deg, #0f2642 0%, #1e3f6f 45%, #2b6cb0 100%);
+            color: white;
+            padding: 80px 24px 96px;
+            text-align: center;
+            overflow: hidden;
+        }
+        /* 장식용 격자 패턴 */
+        .hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+              linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+            pointer-events: none;
+        }
+        /* 떠다니는 원 장식 */
+        .hero::after {
+            content: "";
+            position: absolute;
+            top: -80px; right: -80px;
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(52, 152, 219, 0.25), transparent 70%);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-30px, 30px); }
+        }
+
+        .hero-inner {
+            position: relative;
+            max-width: 960px;
+            margin: 0 auto;
+            z-index: 1;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            font-size: 13px;
+            font-weight: 600;
+            color: #d6e7ff;
+            margin-bottom: 22px;
+            letter-spacing: 0.3px;
+        }
+        .hero-badge-dot {
+            width: 6px; height: 6px;
+            background: #60a5fa;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #60a5fa;
+            animation: pulse-dot 2s infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            line-height: 1.25;
+            margin: 0 0 18px;
+            color: white;
+            border: none;
+            padding: 0;
+            letter-spacing: -0.5px;
+        }
+        .hero h1 .accent {
+            background: linear-gradient(90deg, #7dd3fc, #38bdf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-subtitle {
+            font-size: clamp(14px, 2vw, 17px);
+            color: #b7ccea;
+            max-width: 720px;
+            margin: 0 auto 36px;
+            line-height: 1.7;
+        }
+
+        /* 지표 카드 */
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+            max-width: 720px;
+            margin: 0 auto 36px;
+        }
+        .hero-stat {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            padding: 18px 14px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        .hero-stat:hover {
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.12);
+        }
+        .hero-stat-value {
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .hero-stat-label {
+            font-size: 12px;
+            color: #b7ccea;
+            font-weight: 500;
+        }
+
+        .hero-scroll {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 10px 18px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .hero-scroll:hover {
+            background: rgba(255,255,255,0.18);
+            transform: translateY(-2px);
+        }
+        .hero-scroll svg {
+            animation: bounce-down 1.8s infinite;
+        }
+        @keyframes bounce-down {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(4px); }
+        }
+
+        /* 컨테이너가 히어로 아래에 자연스럽게 오도록 */
+        .container {
+            max-width: 1200px;
+            margin: -48px auto 40px;
+            background: white;
+            padding: 32px 28px;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(15, 38, 66, 0.12);
+            position: relative;
+            z-index: 2;
+        }
         h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+
+        @media (max-width: 640px) {
+            .hero { padding: 56px 18px 72px; }
+            .container { margin: -32px 14px 24px; padding: 22px 18px; border-radius: 14px; }
+            .hero-stat-value { font-size: 1.5rem; }
+        }
         .controls { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         .action-buttons { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
@@ -21,6 +198,10 @@
         .btn-download { background: #2d8a4f; }
         .btn-code { background: #be185d; }
         .btn-network { background: #7c3aed; }
+        .btn-mds3d { background: #0891b2; }
+        .btn-shepard { background: #b45309; }
+        .btn-simheat { background: #a21caf; }
+        .btn-dendro { background: #c2410c; }
         table { border-collapse: collapse; margin-top: 20px; font-size: 11px; width: 100%; }
         th, td { border: 1px solid #ddd; width: 25px; height: 25px; text-align: center; }
         th { background: #f2f2f2; }
@@ -62,9 +243,60 @@
 </head>
 <body>
 
-<div class="container">
-    <h1>고교 과학 교사 인식 코사인 유사도 분석</h1>
-    
+<!-- ============================================================
+     히어로 섹션 (랜딩)
+     ============================================================ -->
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            과학 교육 연구 · Cosine Similarity Analysis
+        </div>
+
+        <h1>
+            고교 과학 교사의<br>
+            <span class="accent">생성형 AI 인식</span> 유사도 분석
+        </h1>
+
+        <p class="hero-subtitle">
+            과학 교사들이 생성형 AI를 어떻게 인식(P)·해석(I)·결정(D)하는지,
+            코사인 유사도와 다차원 척도법(MDS)으로 패턴을 시각화합니다.
+        </p>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-value" id="hero-teacher-count">35</div>
+                <div class="hero-stat-label">분석 대상 교사 수</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">19</div>
+                <div class="hero-stat-label">PID 차원 (P·I·D)</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">11</div>
+                <div class="hero-stat-label">시각화 분석 도구</div>
+            </div>
+        </div>
+
+        <a href="#analysis-section" class="hero-scroll">
+            분석 시작하기
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </a>
+    </div>
+</section>
+
+<div class="container" id="analysis-section">
+    <div style="margin-bottom: 22px;">
+        <h2 style="margin: 0 0 6px; font-size: 1.2rem; color: #2c3e50; font-weight: 700;">
+            <i style="display:inline-block; width:8px; height:22px; background:#3498db; vertical-align:middle; margin-right:10px; border-radius:3px;"></i>
+            분석 도구
+        </h2>
+        <p style="margin: 0; color: #6b7785; font-size: 13px;">
+            분석 영역을 선택하고 원하는 시각화를 실행하세요.
+        </p>
+    </div>
     <div class="controls">
         <div class="control-group">
             <strong>1. 분석 영역 선택 (Vector Dimensions)</strong>
@@ -83,11 +315,15 @@
         <div class="action-buttons">
             <button id="btn-heatmap" class="btn-run active" onclick="runHeatmapAnalysis()">행렬 히트맵</button>
             <button id="btn-distance" class="btn-distance" onclick="runDistanceMapAnalysisFromButton()">교사 거리 맵</button>
-            <button id="btn-network" class="btn-network" onclick="openTeacherNetworkWindow()">거리 맵(3D)</button>
+            <button id="btn-network" class="btn-network" onclick="openTeacherNetworkWindow()" title="d3 force-directed 2D 네트워크 (D 그룹 색상)">네트워크 맵(force)</button>
             <button id="btn-average" class="btn-recommend" onclick="runAverageAnalysisFromButton()">평균 유사도 (추천)</button>
             <button id="btn-cluster" class="btn-cluster" onclick="runClusterAnalysisFromButton()">클러스터 분석</button>
+            <button id="btn-dendro" class="btn-dendro" onclick="openClusterDendrogramWindow()" title="계층적 군집 덴드로그램 (절단선 드래그로 클러스터 수 조절)">클러스터 덴드로그램</button>
             <button id="btn-code" class="btn-code" onclick="openCodeSimilarityWindow()">코드 유사도</button>
             <button id="btn-pid" class="btn-code" style="background:#1e6091;" onclick="openPidStructureWindow()">PID 구조 분석</button>
+            <button id="btn-mds3d" class="btn-mds3d" onclick="openMds3dWindow()" title="19차원 PID → 3D 비계량 MDS (회전 가능)">3D MDS 맵</button>
+            <button id="btn-shepard" class="btn-shepard" onclick="openShepardWindow()" title="2D vs 3D MDS 거리 보존도 산점도">Shepard 진단</button>
+            <button id="btn-simheat" class="btn-simheat" onclick="openSimilarityHeatmapWindow()" title="35×35 전체 유사도 히트맵 (D 그룹별 정렬)">유사도 히트맵</button>
         </div>
     </div>
 
@@ -253,6 +489,10 @@ async function loadMergedData() {
         .map(r => normalizeTeacherFromCsv(r, nameById.get(String(r.Teacher_ID)) || ""));
 
     buildDFilterOptions();
+
+    // 히어로 섹션의 교사 수 업데이트
+    const heroCount = document.getElementById("hero-teacher-count");
+    if (heroCount) heroCount.textContent = teacherData.length;
 }
 
 function buildCurrentAnalysisResult() {
@@ -536,13 +776,23 @@ function dominantDGroup(teacher) {
     return bestKey;
 }
 
+// D 그룹 표준 팔레트 — 투고논문 Figure 2 및 3D MDS 맵과 일치
+const D_GROUP_PALETTE = {
+    "단순 허용":        "#3b82f6",  // 파랑
+    "주의와 지도":      "#f97316",  // 주황
+    "적극적 도입":      "#06b6d4",  // 청록
+    "활용 영역 분리":   "#16a34a",  // 녹색
+    "엄격 통제":        "#dc2626",  // 빨강
+    "평가 준거 재구성": "#9333ea",  // 자주
+    "기타":             "#9ca3af",  // 회색 (D 코드 미부여)
+    "미부여":           "#9ca3af"
+};
+
+// 범례 표시 순서 (왼쪽 스크린샷/논문 관행과 일치)
+const D_GROUP_ORDER = ["단순 허용","주의와 지도","적극적 도입","활용 영역 분리","엄격 통제","평가 준거 재구성","기타"];
+
 function colorForGroup(groupKey) {
-    const palette = ["#3b82f6", "#16a34a", "#9333ea", "#ea580c", "#0f766e", "#a16207", "#be185d", "#334155"];
-    let hash = 0;
-    for (let i = 0; i < groupKey.length; i++) {
-        hash = ((hash << 5) - hash) + groupKey.charCodeAt(i);
-    }
-    return palette[Math.abs(hash) % palette.length];
+    return D_GROUP_PALETTE[groupKey] || "#9ca3af";
 }
 
 function topKEigenPairsSymmetric(matrix, k = 2, maxIter = 200, tol = 1e-7) {
@@ -818,10 +1068,75 @@ function renderDistanceMap() {
         }
     };
 
+    // ── 범례 (SVG 우측 상단, D 그룹별 색상) ──
+    // SVG <defs> 의 drop-shadow 필터를 한 번만 등록 (재호출 시 중복 등록 방지를 위해 querySelector 체크)
+    if (!svg.querySelector("#dm-shadow")) {
+        const defs = document.createElementNS(NS, "defs");
+        const filter = document.createElementNS(NS, "filter");
+        filter.setAttribute("id", "dm-shadow");
+        filter.setAttribute("x", "-20%"); filter.setAttribute("y", "-20%");
+        filter.setAttribute("width", "140%"); filter.setAttribute("height", "140%");
+        const fe = document.createElementNS(NS, "feDropShadow");
+        fe.setAttribute("dx", "0"); fe.setAttribute("dy", "1.5");
+        fe.setAttribute("stdDeviation", "2"); fe.setAttribute("flood-opacity", "0.18");
+        filter.appendChild(fe);
+        defs.appendChild(filter);
+        svg.insertBefore(defs, svg.firstChild);
+    }
+
+    const groupCounts = {};
+    filteredTeachers.forEach(t => {
+        const key = dominantDGroup(t);
+        groupCounts[key] = (groupCounts[key] || 0) + 1;
+    });
+    const legendGroups = D_GROUP_ORDER.filter(k => groupCounts[k] > 0);
+    const rowH = 16, padT = 24, padB = 8, padL = 10;
+    const legendW = 168;
+    const legendH = padT + legendGroups.length * rowH + padB;
+    const legendX = 1000 - legendW - 10, legendY = 10;
+
+    const legG = document.createElementNS(NS, "g");
+    legG.id = "dm-legend";
+    legG.setAttribute("transform", `translate(${legendX}, ${legendY})`);
+    legG.style.pointerEvents = "none";
+
+    const bg = document.createElementNS(NS, "rect");
+    bg.setAttribute("x", 0); bg.setAttribute("y", 0);
+    bg.setAttribute("width", legendW); bg.setAttribute("height", legendH);
+    bg.setAttribute("rx", 8); bg.setAttribute("ry", 8);
+    bg.setAttribute("fill", "rgba(255,255,255,0.96)");
+    bg.setAttribute("stroke", "#d8e0ea"); bg.setAttribute("stroke-width", "1");
+    bg.setAttribute("filter", "url(#dm-shadow)");
+    legG.appendChild(bg);
+
+    const title = document.createElementNS(NS, "text");
+    title.setAttribute("x", padL); title.setAttribute("y", 16);
+    title.setAttribute("font-size", "11.5"); title.setAttribute("font-weight", "700");
+    title.setAttribute("fill", "#1f3e5b");
+    title.textContent = "D 그룹";
+    legG.appendChild(title);
+
+    legendGroups.forEach((key, idx) => {
+        const y = padT + idx * rowH;
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("cx", padL + 5); circle.setAttribute("cy", y + 5);
+        circle.setAttribute("r", 5); circle.setAttribute("fill", colorForGroup(key));
+        circle.setAttribute("stroke", "#ffffff"); circle.setAttribute("stroke-width", "1");
+        legG.appendChild(circle);
+
+        const label = document.createElementNS(NS, "text");
+        label.setAttribute("x", padL + 16); label.setAttribute("y", y + 9);
+        label.setAttribute("font-size", "11"); label.setAttribute("fill", "#1e293b");
+        label.textContent = `${key} (${groupCounts[key]})`;
+        legG.appendChild(label);
+    });
+
+    svg.appendChild(legG);
+
     summary.textContent = `현재 ${n}명 표시, 유사도 ${threshold.toFixed(2)} 이상 연결선 ${edges.length}개`;
 }
 
-// ── 교사 거리 맵(3D) 새 창 ──
+// ── 교사 네트워크 맵(force-directed 2D) 새 창 ──
 function openTeacherNetworkWindow() {
     if (!teacherData || teacherData.length === 0) {
         alert("데이터가 로드되지 않았습니다. 먼저 데이터를 불러오세요.");
@@ -841,6 +1156,26 @@ function openCodeSimilarityWindow() {
         return;
     }
     window.open('./code_analysis.html', '_blank', 'width=1280,height=900,scrollbars=yes,resizable=yes');
+}
+
+// ── 3D MDS 거리 맵 (회전 가능, three.js) ──
+function openMds3dWindow() {
+    window.open('./teacher_mds_3d.html', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+}
+
+// ── Shepard 다이어그램 (2D vs 3D MDS 거리 보존도) ──
+function openShepardWindow() {
+    window.open('./shepard_diagram.html', '_blank', 'width=1200,height=820,scrollbars=yes,resizable=yes');
+}
+
+// ── 35×35 유사도 히트맵 (D 그룹별 정렬) ──
+function openSimilarityHeatmapWindow() {
+    window.open('./similarity_heatmap.html', '_blank', 'width=1280,height=900,scrollbars=yes,resizable=yes');
+}
+
+// ── 계층적 클러스터 덴드로그램 (절단 기준 인터랙티브) ──
+function openClusterDendrogramWindow() {
+    window.open('./cluster_dendrogram.html', '_blank', 'width=1380,height=940,scrollbars=yes,resizable=yes');
 }
 
 
