@@ -147,7 +147,8 @@ function makeLabelSprite(text, color){
 
 teachers.forEach((t, i) => {
   const color = DATA.palette[t.d_group] || '#9ca3af';
-  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), metalness:0.1, roughness:0.4 });
+  // MeshBasicMaterial: 조명 무시하고 순수 색상으로 렌더 → 범례 색과 완전 일치
+  const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
   const mesh = new THREE.Mesh(sphereGeo, mat);
   mesh.position.set(t.xyz[0], t.xyz[1], t.xyz[2]);
   mesh.userData = { idx: i, teacher: t };
